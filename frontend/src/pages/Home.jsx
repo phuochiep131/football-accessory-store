@@ -1,173 +1,348 @@
-import { BiFootball } from "react-icons/bi";
-import { FaFire, FaRunning, FaTshirt, FaShoppingCart } from "react-icons/fa";
-import { GiSoccerKick, GiWhistle, GiGloves, GiTrophyCup } from "react-icons/gi";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
+import {
+  ChevronRight,
+  Star,
+  ShoppingCart,
+  Heart,
+  Zap,
+  Clock,
+  Trophy, // Cúp
+  Shirt, // Áo đấu
+  Activity, // Giày/Vận động
+  Shield, // Găng tay/Bảo vệ
+  Flame, // Hot
+  Target, // Bóng
+  Users, // Phụ kiện đội
+} from "lucide-react";
+
+const API_URL = "http://localhost:5000/api";
+
+// --- HELPER: MAP ICON VỚI TÊN DANH MỤC BÓNG ĐÁ ---
+const getCategoryStyle = (name) => {
+  const lowerName = name ? name.toLowerCase() : "";
+
+  if (lowerName.includes("giày"))
+    return {
+      icon: <Activity size={24} />,
+      color: "bg-green-100 text-green-600",
+    }; // Giày
+  if (lowerName.includes("áo") || lowerName.includes("quần"))
+    return { icon: <Shirt size={24} />, color: "bg-red-100 text-red-600" }; // Áo đấu
+  if (lowerName.includes("bóng"))
+    return {
+      icon: <Target size={24} />,
+      color: "bg-orange-100 text-orange-600",
+    }; // Quả bóng
+  if (lowerName.includes("găng") || lowerName.includes("bảo vệ"))
+    return { icon: <Shield size={24} />, color: "bg-blue-100 text-blue-600" }; // Găng tay
+  if (lowerName.includes("phụ kiện"))
+    return {
+      icon: <Users size={24} />,
+      color: "bg-purple-100 text-purple-600",
+    };
+
+  return { icon: <Trophy size={24} />, color: "bg-gray-100 text-gray-600" };
+};
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(amount);
+};
 
 const Home = () => {
-  const products = Array.from({ length: 8 }, (_, i) => ({
-    id: i + 1,
-    name: `Sản phẩm ${i + 1}`,
-    price: "500.000 đ",
-    oldPrice: "750.000 đ",
-    sold: 10 + i * 5,
-  }));
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [flashSaleProducts, setFlashSaleProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState({
+    hours: 5,
+    minutes: 0,
+    seconds: 0,
+  });
 
-  // Data giả lập Danh mục (Category 1 -> 8)
-  const categories = Array.from({ length: 8 }, (_, i) => ({
-    id: i + 1,
-    name: `Danh mục ${i + 1}`,
-    icon: [
-      <GiSoccerKick />,
-      <FaTshirt />,
-      <GiWhistle />,
-      <GiGloves />,
-      <FaRunning />,
-      <GiTrophyCup />,
-      <BiFootball />,
-      <FaFire />,
-    ][i % 8],
-  }));
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [categoryRes, productRes] = await Promise.all([
+          axios.get(`${API_URL}/categories`),
+          axios.get(`${API_URL}/products`),
+        ]);
+        setCategories(categoryRes.data);
+        const allProducts = productRes.data;
+        const saleItems = allProducts.filter(
+          (p) => p.discount && p.discount > 0
+        );
+        setProducts(allProducts);
+        setFlashSaleProducts(saleItems.slice(0, 4));
+      } catch (error) {
+        console.error("Lỗi tải dữ liệu:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Countdown logic giữ nguyên...
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
+        if (prev.minutes > 0)
+          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+        if (prev.hours > 0)
+          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center font-bold text-green-600">
+        Đang tải sân bóng...
+      </div>
+    );
 
   return (
-    // Container chính, giữ màu nền xám nhạt cho đồng bộ
-    <div className="w-full bg-slate-50 pb-12">
-      <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-8 space-y-12">
-        {/* --- 1. SECTION BANNER --- */}
-        <div className="w-full h-[350px] md:h-[450px] bg-slate-900 rounded-2xl overflow-hidden relative shadow-2xl flex items-center px-8 md:px-20">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-600 via-slate-900 to-black"></div>
-
-          <div className="relative z-10 text-white max-w-xl">
-            <span className="inline-block py-1 px-3 bg-emerald-500 rounded text-xs font-bold mb-4 text-black">
-              NEW SEASON 2025
-            </span>
-            <h1 className="text-4xl md:text-6xl font-black uppercase leading-tight mb-6 italic">
-              Bứt phá <br />{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-                Mọi Giới Hạn
+    <div className="bg-gray-50 min-h-screen pb-12 font-sans">
+      {/* --- 1. HERO SECTION (BANNER BÓNG ĐÁ) --- */}
+      <section className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[400px]">
+          <div className="md:col-span-8 relative rounded-2xl overflow-hidden shadow-lg group cursor-pointer">
+            {/* Ảnh banner sân cỏ hoặc cầu thủ */}
+            <img
+              src="https://placehold.co/800x400/15803d/ffffff?text=GIÀY+CỎ+NHÂN+TẠO+2025"
+              alt="Main Banner"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent flex flex-col justify-center p-8 text-white">
+              <span className="bg-yellow-500 text-black text-xs font-bold px-3 py-1 rounded-full w-fit mb-4 uppercase">
+                Bộ sưu tập mới
               </span>
-            </h1>
-            <p className="text-gray-300 mb-8 text-lg">
-              Trang bị đẳng cấp cho những trận cầu đỉnh cao.
-            </p>
-            <button className="bg-white text-slate-900 px-8 py-3 rounded-full font-bold hover:bg-emerald-400 hover:text-black transition-all transform hover:scale-105 shadow-lg">
-              MUA NGAY
-            </button>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-4 italic">
+                BỨT TỐC &<br />
+                GHI BÀN
+              </h2>
+              <p className="mb-6 text-lg text-gray-200">
+                Giảm đến 50% cho giày Nike & Adidas chính hãng
+              </p>
+              <button className="bg-white text-green-700 px-6 py-3 rounded-full font-bold hover:bg-green-50 transition w-fit uppercase">
+                Khám phá ngay
+              </button>
+            </div>
           </div>
-
-          {/* Decoration Circle (Hiệu ứng ánh sáng xanh) */}
-          <div className="absolute -right-20 top-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-600 blur-[100px] opacity-30 rounded-full"></div>
+          <div className="md:col-span-4 flex flex-col gap-4 h-full">
+            <div className="flex-1 rounded-2xl overflow-hidden shadow-md relative cursor-pointer group">
+              <img
+                src="https://placehold.co/400x200/b91c1c/ffffff?text=Áo+Đấu+CLB"
+                alt="Sub 1"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+            </div>
+            <div className="flex-1 rounded-2xl overflow-hidden shadow-md relative cursor-pointer group">
+              <img
+                src="https://placehold.co/400x200/1e293b/ffffff?text=Phụ+Kiện+Bóng+Đá"
+                alt="Sub 2"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+            </div>
+          </div>
         </div>
+      </section>
 
-        {/* --- 2. SECTION DANH MỤC --- */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-black uppercase text-slate-800 border-l-4 border-emerald-500 pl-3">
-              Danh Mục Nổi Bật
-            </h2>
-            <a
-              href="#"
-              className="text-emerald-600 font-semibold hover:underline"
-            >
-              Xem tất cả
-            </a>
-          </div>
-
-          <Link to="/products">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer border border-slate-100 flex flex-col items-center justify-center gap-3 group h-32"
-                >
-                  <div className="text-3xl text-slate-400 group-hover:text-emerald-600 transition-colors">
-                    {cat.icon}
+      {/* --- 2. CATEGORIES --- */}
+      <section className="container mx-auto px-4 py-8">
+        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 uppercase">
+          <Trophy className="text-yellow-500" /> Danh mục thi đấu
+        </h3>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+          {categories.map((cat) => {
+            const style = getCategoryStyle(cat.category_name);
+            return (
+              <Link to={`/category/${cat._id}`} key={cat._id} className="group">
+                <div className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-green-200 flex flex-col items-center gap-3 cursor-pointer h-full">
+                  <div
+                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform group-hover:-translate-y-1 ${style.color}`}
+                  >
+                    {style.icon}
                   </div>
-                  <span className="font-bold text-slate-700 text-sm text-center group-hover:text-black uppercase">
-                    {cat.name}
+                  <span className="text-sm font-bold text-gray-700 group-hover:text-green-600 text-center line-clamp-1 uppercase">
+                    {cat.category_name}
                   </span>
                 </div>
-              ))}
-            </div>
-          </Link>
+              </Link>
+            );
+          })}
         </div>
+      </section>
 
-        {/* --- 3. SECTION SẢN PHẨM (BEST SELLER) --- */}
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-orange-100 p-2 rounded-full">
-              <FaFire className="text-orange-600 text-xl" />
+      {/* --- 3. FLASH SALE (GIỜ VÀNG) --- */}
+      {flashSaleProducts.length > 0 && (
+        <section className="bg-white py-8 border-y border-gray-200 mb-8">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl md:text-3xl font-black text-red-600 italic flex items-center gap-2 uppercase">
+                  <Flame className="fill-current animate-pulse" /> Giờ Vàng Giá
+                  Sốc
+                </h2>
+                <div className="flex items-center gap-2 text-white bg-black px-4 py-1.5 rounded-lg text-sm font-bold shadow-inner">
+                  <Clock size={16} />
+                  <span>{String(timeLeft.hours).padStart(2, "0")}</span> :
+                  <span>{String(timeLeft.minutes).padStart(2, "0")}</span> :
+                  <span>{String(timeLeft.seconds).padStart(2, "0")}</span>
+                </div>
+              </div>
+              <Link
+                to="/flash-sale"
+                className="text-green-600 font-bold flex items-center hover:underline"
+              >
+                Xem tất cả Deal <ChevronRight size={18} />
+              </Link>
             </div>
-            <h2 className="text-2xl font-black uppercase text-slate-800">
-              Sản Phẩm Bán Chạy
-            </h2>
-          </div>
 
-          <Link to="/product/:id">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <div key={product.id} className="group relative">
-                  {/* Card Image Placeholder */}
-                  <div className="w-full h-64 bg-gray-200 rounded-xl mb-4 overflow-hidden relative">
-                    {/* Sau này thay div này bằng thẻ img */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-slate-100 group-hover:bg-slate-200 transition-colors">
-                      <BiFootball className="text-5xl opacity-20 mb-2" />
-                      <span className="text-xs font-bold uppercase tracking-widest">
-                        Image
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {flashSaleProducts.map((product) => {
+                const originalPrice = product.price;
+                const currentPrice =
+                  originalPrice * (1 - product.discount / 100);
+                const soldMock = Math.floor(Math.random() * 50) + 10;
+
+                return (
+                  <div
+                    key={product._id}
+                    className="border border-red-100 rounded-lg p-3 hover:shadow-lg transition-shadow relative bg-white"
+                  >
+                    <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded skew-x-[-10deg]">
+                      -{product.discount}%
+                    </div>
+                    <img
+                      src={
+                        product.image_url ||
+                        "https://placehold.co/300x300?text=Giày+Bóng+Đá"
+                      }
+                      alt={product.product_name}
+                      className="w-full h-40 object-contain mb-3 rounded"
+                    />
+                    <h4 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 h-10">
+                      {product.product_name}
+                    </h4>
+                    <div className="flex flex-col">
+                      <span className="text-red-600 font-black text-lg">
+                        {formatCurrency(currentPrice)}
+                      </span>
+                      <span className="text-gray-400 text-xs line-through">
+                        {formatCurrency(originalPrice)}
                       </span>
                     </div>
-                    <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow">
-                      -30%
-                    </span>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="space-y-2">
-                    <h3 className="font-bold text-slate-800 text-lg group-hover:text-emerald-600 transition-colors cursor-pointer">
-                      {product.name}
-                    </h3>
-
-                    <div className="flex items-end justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-gray-400 text-sm line-through">
-                          {product.oldPrice}
-                        </span>
-                        <span className="text-red-600 font-black text-xl">
-                          {product.price}
-                        </span>
-                      </div>
-                      {/* Nút thêm vào giỏ hàng */}
-                      <button className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
-                        <FaShoppingCart />
-                      </button>
-                    </div>
-
-                    {/* Thanh đã bán */}
-                    <div className="pt-2">
-                      <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-400 to-red-500 w-2/3"></div>
-                      </div>
-                      <div className="text-[10px] text-gray-500 mt-1 flex justify-between">
-                        <span>Đã bán: {product.sold}</span>
-                        <span className="text-emerald-600 font-bold">
-                          Còn hàng
-                        </span>
-                      </div>
+                    <div className="mt-3 relative h-4 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 to-orange-500"
+                        style={{ width: `${(soldMock / 100) * 100}%` }}
+                      ></div>
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-bold z-10 uppercase">
+                        Đã bán {soldMock}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </Link>
+          </div>
+        </section>
+      )}
 
-          {/* Nút xem thêm */}
-          <div className="mt-10 flex justify-center">
-            <button className="border-2 border-slate-900 text-slate-900 font-bold py-2 px-10 rounded-full hover:bg-slate-900 hover:text-white transition-all">
-              XEM THÊM
-            </button>
+      {/* --- 4. FEATURED PRODUCTS (SẢN PHẨM GỢI Ý) --- */}
+      <section className="container mx-auto px-4 mb-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-200 pb-4">
+          <h3 className="text-2xl font-bold text-gray-800 uppercase border-l-4 border-green-600 pl-3">
+            Hàng Tuyển Chọn
+          </h3>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            {[
+              "Giày cỏ nhân tạo",
+              "Giày cỏ tự nhiên",
+              "Áo đấu 2024",
+              "Găng thủ môn",
+            ].map((tab, idx) => (
+              <button
+                key={idx}
+                className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
+                  idx === 0
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          {products.map((product) => {
+            const hasDiscount = product.discount && product.discount > 0;
+            const currentPrice = hasDiscount
+              ? product.price * (1 - product.discount / 100)
+              : product.price;
+
+            return (
+              <Link to={`/product/${product._id}`} key={product._id}>
+                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-xl hover:border-green-200 transition-all duration-300 group flex flex-col h-full">
+                  <div className="relative p-4 bg-gray-50 h-56 flex items-center justify-center">
+                    <img
+                      src={
+                        product.image_url ||
+                        "https://placehold.co/400x400?text=Sản+Phẩm"
+                      }
+                      alt={product.product_name}
+                      className="max-h-full max-w-full object-contain group-hover:scale-110 transition-transform duration-300"
+                    />
+                    {hasDiscount && (
+                      <span className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
+                        GIẢM {product.discount}%
+                      </span>
+                    )}
+                    <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
+                      <button className="bg-white p-2 rounded-full shadow hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors">
+                        <Heart size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="text-gray-800 font-bold text-sm md:text-base line-clamp-2 mb-2 h-10 md:h-12 leading-tight group-hover:text-green-600 transition-colors uppercase">
+                      {product.product_name}
+                    </h3>
+
+                    <div className="mt-auto">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-red-600 font-bold text-lg md:text-xl">
+                          {formatCurrency(currentPrice)}
+                        </span>
+                      </div>
+                      {hasDiscount && (
+                        <div className="text-gray-400 text-xs line-through mt-0.5">
+                          {formatCurrency(product.price)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <button className="m-3 bg-gray-900 text-white py-3 font-bold uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition-all rounded-lg">
+                    <ShoppingCart size={18} /> Mua ngay
+                  </button>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 };

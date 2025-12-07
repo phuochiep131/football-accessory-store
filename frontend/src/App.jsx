@@ -1,84 +1,94 @@
-// import Navbar from "./components/Navbar";
-// import Footer from "./components/Footer";
-// import Home from "./pages/Home.jsx";
-// import Login from "./pages/Login.jsx";
-// import Register from "./pages/Register.jsx";
-// import Cart from "./pages/Cart.jsx";
-// import ProductDetail from "./pages/ProductDetail.jsx";
-// import MyAccount from "./pages/MyAccount.jsx";
-// import ProductList from "./pages/ProductList.jsx";
-
-// import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
-
-// function App() {
-//   const Layout = () => {
-//     return (
-//       <>
-//         <Navbar />
-//         <Outlet />
-//         <Footer />
-//       </>
-//     );
-//   };
-
-//   const router = createBrowserRouter([
-//     {
-//       path: "/",
-//       element: <Layout />,
-//       children: [
-//         { path: "/", element: <Home /> },
-//         { path: "/login", element: <Login /> },
-//         { path: "/register", element: <Register /> },
-//         { path: "/cart", element: <Cart /> },
-//         { path: "/product/:id", element: <ProductDetail /> },
-//         { path: "/account", element: <MyAccount /> },
-//         { path: "/products", element: <ProductList /> },
-//       ],
-//     },
-//   ]);
-
-//   return <RouterProvider router={router} />;
-// }
-
-// export default App;
-
+import { Routes, Route, Outlet } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import Home from "./pages/Home.jsx";
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import Cart from "./pages/Cart.jsx";
-import ProductDetail from "./pages/ProductDetail.jsx";
-import MyAccount from "./pages/MyAccount.jsx";
-import ProductList from "./pages/ProductList.jsx";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Cart from "./pages/Cart";
+import ProductDetail from "./pages/ProductDetail";
+import Profile from "./pages/Profile";
+import CategoryPage from "./pages/CategoryPage";
 
-// Chỉ import Routes và Route, KHÔNG dùng RouterProvider nữa
-import { Routes, Route } from "react-router-dom";
+//admin
+import AdminRoute from "./pages/admin/AdminRoute";
+import AdminLayout from "./pages/admin/AdminLayout";
+import Dashboard from "./pages/admin/Dashboard";
+import ProductManager from "./pages/admin/ProductManager";
+import UserManager from "./pages/admin/UserManager";
+import CategoryManager from "./pages/admin/CategoryManager";
+
+// --- LAYOUT COMPONENT ---
+// Layout này giúp Navbar và Footer luôn hiển thị, chỉ có phần giữa (Outlet) thay đổi
+const MainLayout = () => {
+  return (
+    <div className="flex flex-col min-h-screen font-sans text-gray-900">
+      {/* Navbar cố định ở trên */}
+      <Navbar />
+
+      {/* Phần nội dung chính sẽ thay đổi tùy theo trang */}
+      {/* flex-grow giúp đẩy Footer xuống dưới cùng nếu nội dung trang ngắn */}
+      <main className="flex-grow bg-gray-50">
+        <Outlet />
+      </main>
+
+      {/* Footer cố định ở dưới */}
+      <Footer />
+    </div>
+  );
+};
 
 function App() {
   return (
-    <>
-      {/* Navbar luôn hiển thị ở mọi trang */}
-      <Navbar />
+    <Routes>
+      {/* Route cha sử dụng MainLayout */}
+      <Route path="/" element={<MainLayout />}>
+        {/* Route Index: Trang chủ (hiển thị khi vào đường dẫn /) */}
+        <Route index element={<Home />} />
 
-      {/* Khu vực nội dung thay đổi tùy theo URL */}
-      <div className="min-h-[80vh]">
-        {" "}
-        {/* Thêm min-height để Footer không bị đẩy lên giữa màn hình khi nội dung ngắn */}
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/account" element={<MyAccount />} />
-          <Route path="/products" element={<ProductList />} />
-        </Routes>
-      </div>
+        {/* Các Route con */}
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        <Route path="cart" element={<Cart />} />
+        <Route path="product/:id" element={<ProductDetail />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/category/:id" element={<CategoryPage />} />
 
-      {/* Footer luôn hiển thị */}
-      <Footer />
-    </>
+        {/* Route động cho danh mục sản phẩm (khớp với link trong Navbar) */}
+        {/* Ví dụ: /category/tu-lanh */}
+        <Route
+          path="category/:slug"
+          element={
+            <div className="p-20 text-center text-xl">
+              Trang danh mục đang phát triển...
+            </div>
+          }
+        />
+
+        {/* Route bắt lỗi 404 */}
+        <Route
+          path="*"
+          element={
+            <div className="flex flex-col items-center justify-center h-64">
+              <h1 className="text-4xl font-bold text-gray-300">404</h1>
+              <p className="text-gray-500">Không tìm thấy trang này</p>
+            </div>
+          }
+        />
+      </Route>
+
+      {/* --- ROUTES ADMIN (Được bảo vệ) --- */}
+      <Route path="/admin" element={<AdminRoute />}>
+        <Route element={<AdminLayout />}>
+          {/* Mặc định vào /admin sẽ nhảy tới Dashboard */}
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="products" element={<ProductManager />} />
+          <Route path="users" element={<UserManager />} />
+          <Route path="categories" element={<CategoryManager />} />
+          {/* Thêm các route khác: orders, users... */}
+        </Route>
+      </Route>
+    </Routes>
   );
 }
 
