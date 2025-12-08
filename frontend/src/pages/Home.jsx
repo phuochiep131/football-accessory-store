@@ -1,49 +1,129 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
+
+// --- 1. IMPORT REACT-ICONS ---
+import { BiFootball, BiTime } from "react-icons/bi";
 import {
-  ChevronRight,
-  Star,
-  ShoppingCart,
-  Heart,
-  Zap,
-  Clock,
-  Trophy, // Cúp
-  Shirt, // Áo đấu
-  Activity, // Giày/Vận động
-  Shield, // Găng tay/Bảo vệ
-  Flame, // Hot
-  Target, // Bóng
-  Users, // Phụ kiện đội
-} from "lucide-react";
+  FaFire,
+  FaRunning,
+  FaTshirt,
+  FaShoppingCart,
+  FaChevronRight,
+  FaHeart,
+  FaMedkit,
+  FaShieldAlt,
+} from "react-icons/fa";
+import {
+  GiSoccerKick,
+  GiWhistle,
+  GiGloves,
+  GiTrophyCup,
+  GiBackpack, // Dùng cho Túi/Balo
+  GiWaterBottle, // Dùng cho Bình nước
+  GiSocks, // Dùng cho Vớ/Tất
+} from "react-icons/gi";
 
 const API_URL = "http://localhost:5000/api";
 
-// --- HELPER: MAP ICON VỚI TÊN DANH MỤC BÓNG ĐÁ ---
+// --- HELPER: MAP ICON VỚI TÊN DANH MỤC (SỬ DỤNG REACT-ICONS) ---
 const getCategoryStyle = (name) => {
-  const lowerName = name ? name.toLowerCase() : "";
+  if (!name) {
+    return {
+      icon: <GiTrophyCup size={30} />,
+      color: "bg-gray-100 text-gray-600",
+    };
+  }
 
-  if (lowerName.includes("giày"))
+  const lower = name.toLowerCase();
+
+  // --- GIÀY BÓNG ĐÁ ---
+  if (lower.includes("giày"))
     return {
-      icon: <Activity size={24} />,
-      color: "bg-green-100 text-green-600",
-    }; // Giày
-  if (lowerName.includes("áo") || lowerName.includes("quần"))
-    return { icon: <Shirt size={24} />, color: "bg-red-100 text-red-600" }; // Áo đấu
-  if (lowerName.includes("bóng"))
-    return {
-      icon: <Target size={24} />,
-      color: "bg-orange-100 text-orange-600",
-    }; // Quả bóng
-  if (lowerName.includes("găng") || lowerName.includes("bảo vệ"))
-    return { icon: <Shield size={24} />, color: "bg-blue-100 text-blue-600" }; // Găng tay
-  if (lowerName.includes("phụ kiện"))
-    return {
-      icon: <Users size={24} />,
-      color: "bg-purple-100 text-purple-600",
+      icon: <GiSoccerKick size={30} />, // Hình cầu thủ sút bóng
+      color: "bg-green-100 text-green-700",
     };
 
-  return { icon: <Trophy size={24} />, color: "bg-gray-100 text-gray-600" };
+  // --- BÓNG ĐÁ ---
+  if (
+    name.toLowerCase() === "bóng đá" ||
+    (lower.includes("bóng") &&
+      !lower.includes("giày") &&
+      !lower.includes("tất") &&
+      !lower.includes("áo"))
+  )
+    return {
+      icon: <BiFootball size={30} />, // Hình quả bóng
+      color: "bg-orange-100 text-orange-600",
+    };
+
+  // --- GĂNG TAY THỦ MÔN ---
+  if (lower.includes("găng"))
+    return {
+      icon: <GiGloves size={30} />, // Hình găng tay
+      color: "bg-blue-100 text-blue-600",
+    };
+
+  // --- BẢO VỆ ỐNG ĐỒNG ---
+  if (lower.includes("bảo vệ") || lower.includes("ống đồng"))
+    return {
+      icon: <FaShieldAlt size={26} />, // Hình cái khiên
+      color: "bg-teal-100 text-teal-700",
+    };
+
+  // --- ÁO ĐẤU ---
+  if (lower.includes("áo"))
+    return {
+      icon: <FaTshirt size={26} />, // Hình áo thun
+      color: "bg-red-100 text-red-600",
+    };
+
+  // --- TÚI & BALO ---
+  if (lower.includes("túi") || lower.includes("balo"))
+    return {
+      icon: <GiBackpack size={30} />, // Hình Balo
+      color: "bg-purple-100 text-purple-700",
+    };
+
+  // --- VỚ & TẤT ---
+  if (lower.includes("vớ") || lower.includes("tất"))
+    return {
+      icon: <GiSocks size={30} />, // Hình đôi tất
+      color: "bg-pink-100 text-pink-600",
+    };
+
+  // --- TẬP LUYỆN / CÒI ---
+  if (lower.includes("tập luyện"))
+    return {
+      icon: <FaRunning size={28} />, // Hình người đang chạy
+      color: "bg-yellow-100 text-yellow-700",
+    };
+
+  if (lower.includes("còi") || lower.includes("trọng tài"))
+    return {
+      icon: <GiWhistle size={30} />,
+      color: "bg-yellow-100 text-yellow-700",
+    };
+
+  // --- BĂNG KEO & Y TẾ ---
+  if (lower.includes("băng keo") || lower.includes("quấn"))
+    return {
+      icon: <FaMedkit size={26} />, // Hình hộp y tế
+      color: "bg-indigo-100 text-indigo-700",
+    };
+
+  // --- BÌNH NƯỚC ---
+  if (lower.includes("bình nước") || lower.includes("nước"))
+    return {
+      icon: <GiWaterBottle size={30} />, // Hình bình nước
+      color: "bg-cyan-100 text-cyan-700",
+    };
+
+  // Mặc định
+  return {
+    icon: <GiTrophyCup size={30} />,
+    color: "bg-gray-100 text-gray-600",
+  };
 };
 
 const formatCurrency = (amount) => {
@@ -73,9 +153,11 @@ const Home = () => {
         ]);
         setCategories(categoryRes.data);
         const allProducts = productRes.data;
-        const saleItems = allProducts.filter(
-          (p) => p.discount && p.discount > 0
-        );
+
+        const saleItems = Array.isArray(allProducts)
+          ? allProducts.filter((p) => p.discount && p.discount > 0)
+          : [];
+
         setProducts(allProducts);
         setFlashSaleProducts(saleItems.slice(0, 4));
       } catch (error) {
@@ -87,7 +169,6 @@ const Home = () => {
     fetchData();
   }, []);
 
-  // Countdown logic giữ nguyên...
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -104,18 +185,17 @@ const Home = () => {
 
   if (loading)
     return (
-      <div className="min-h-screen flex items-center justify-center font-bold text-green-600">
-        Đang tải sân bóng...
+      <div className="min-h-screen flex items-center justify-center font-bold text-green-600 gap-2">
+        <FaRunning className="animate-bounce" size={30} /> Đang tải sân bóng...
       </div>
     );
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12 font-sans">
-      {/* --- 1. HERO SECTION (BANNER BÓNG ĐÁ) --- */}
+      {/* --- 1. HERO SECTION --- */}
       <section className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[400px]">
           <div className="md:col-span-8 relative rounded-2xl overflow-hidden shadow-lg group cursor-pointer">
-            {/* Ảnh banner sân cỏ hoặc cầu thủ */}
             <img
               src="https://placehold.co/800x400/15803d/ffffff?text=GIÀY+CỎ+NHÂN+TẠO+2025"
               alt="Main Banner"
@@ -132,8 +212,8 @@ const Home = () => {
               <p className="mb-6 text-lg text-gray-200">
                 Giảm đến 50% cho giày Nike & Adidas chính hãng
               </p>
-              <button className="bg-white text-green-700 px-6 py-3 rounded-full font-bold hover:bg-green-50 transition w-fit uppercase">
-                Khám phá ngay
+              <button className="bg-white text-green-700 px-6 py-3 rounded-full font-bold hover:bg-green-50 transition w-fit uppercase flex items-center gap-2">
+                Khám phá ngay <FaChevronRight size={12} />
               </button>
             </div>
           </div>
@@ -158,12 +238,12 @@ const Home = () => {
 
       {/* --- 2. CATEGORIES --- */}
       <section className="container mx-auto px-4 py-8">
-        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 uppercase">
-          <Trophy className="text-yellow-500" /> Danh mục thi đấu
+        <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2 uppercase border-l-4 border-yellow-500 pl-3">
+          <GiTrophyCup className="text-yellow-500" size={28} /> Danh mục thi đấu
         </h3>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
           {categories.map((cat) => {
-            const style = getCategoryStyle(cat.category_name);
+            const style = getCategoryStyle(cat.name);
             return (
               <Link to={`/category/${cat._id}`} key={cat._id} className="group">
                 <div className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-green-200 flex flex-col items-center gap-3 cursor-pointer h-full">
@@ -173,7 +253,7 @@ const Home = () => {
                     {style.icon}
                   </div>
                   <span className="text-sm font-bold text-gray-700 group-hover:text-green-600 text-center line-clamp-1 uppercase">
-                    {cat.category_name}
+                    {cat.name}
                   </span>
                 </div>
               </Link>
@@ -182,18 +262,18 @@ const Home = () => {
         </div>
       </section>
 
-      {/* --- 3. FLASH SALE (GIỜ VÀNG) --- */}
+      {/* --- 3. FLASH SALE --- */}
       {flashSaleProducts.length > 0 && (
         <section className="bg-white py-8 border-y border-gray-200 mb-8">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl md:text-3xl font-black text-red-600 italic flex items-center gap-2 uppercase">
-                  <Flame className="fill-current animate-pulse" /> Giờ Vàng Giá
+                  <FaFire className="text-red-600 animate-pulse" /> Giờ Vàng Giá
                   Sốc
                 </h2>
                 <div className="flex items-center gap-2 text-white bg-black px-4 py-1.5 rounded-lg text-sm font-bold shadow-inner">
-                  <Clock size={16} />
+                  <BiTime size={20} />
                   <span>{String(timeLeft.hours).padStart(2, "0")}</span> :
                   <span>{String(timeLeft.minutes).padStart(2, "0")}</span> :
                   <span>{String(timeLeft.seconds).padStart(2, "0")}</span>
@@ -203,7 +283,7 @@ const Home = () => {
                 to="/flash-sale"
                 className="text-green-600 font-bold flex items-center hover:underline"
               >
-                Xem tất cả Deal <ChevronRight size={18} />
+                Xem tất cả Deal <FaChevronRight size={16} />
               </Link>
             </div>
 
@@ -258,7 +338,7 @@ const Home = () => {
         </section>
       )}
 
-      {/* --- 4. FEATURED PRODUCTS (SẢN PHẨM GỢI Ý) --- */}
+      {/* --- 4. FEATURED PRODUCTS --- */}
       <section className="container mx-auto px-4 mb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-200 pb-4">
           <h3 className="text-2xl font-bold text-gray-800 uppercase border-l-4 border-green-600 pl-3">
@@ -311,7 +391,7 @@ const Home = () => {
                     )}
                     <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
                       <button className="bg-white p-2 rounded-full shadow hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors">
-                        <Heart size={18} />
+                        <FaHeart size={18} />
                       </button>
                     </div>
                   </div>
@@ -335,7 +415,7 @@ const Home = () => {
                     </div>
                   </div>
                   <button className="m-3 bg-gray-900 text-white py-3 font-bold uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition-all rounded-lg">
-                    <ShoppingCart size={18} /> Mua ngay
+                    <FaShoppingCart size={18} /> Mua ngay
                   </button>
                 </div>
               </Link>

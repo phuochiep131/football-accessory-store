@@ -127,19 +127,48 @@ const Navbar = () => {
               </div>
 
               {/* Dropdown giữ nguyên logic, chỉ đổi màu hover */}
-              <div className="absolute right-0 top-full mt-0 w-60 bg-white rounded-lg shadow-xl border border-gray-100 hidden group-hover:block">
-                {/* ... (Giữ nguyên logic menu dropdown user, đổi hover:bg-blue thành hover:bg-green nếu thích) ... */}
+              <div className="absolute right-0 top-full mt-0 w-60 bg-white rounded-lg shadow-xl border border-gray-100 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
                 {currentUser ? (
                   <div className="py-2">
+                    {/* Header Dropdown */}
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                       <p className="text-sm font-bold text-gray-800 truncate">
                         {currentUser.fullname}
                       </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {currentUser.email}
+                      </p>
                     </div>
+
                     <div className="p-1">
+                      {/* --- KIỂM TRA QUYỀN ADMIN --- */}
+                      {(currentUser.role === "Admin" || currentUser.role === "admin") && (
+                        <Link
+                          to="/admin/dashboard"
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors mb-1 font-semibold"
+                        >
+                          <LayoutDashboard size={16} /> Trang quản trị
+                        </Link>
+                      )}
+
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors"
+                      >
+                        <UserCircle size={16} /> Hồ sơ cá nhân
+                      </Link>
+                      <Link
+                        to="/orders"
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors"
+                      >
+                        <Package size={16} /> Đơn mua
+                      </Link>
+
+                      <div className="border-t border-gray-100 my-1"></div>
+
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-md"
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors text-left"
                       >
                         <LogOut size={16} /> Đăng xuất
                       </button>
@@ -149,10 +178,16 @@ const Navbar = () => {
                   <div className="p-3 space-y-2">
                     <button
                       onClick={handleLoginClick}
-                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-md"
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors"
                     >
                       <LogIn size={16} /> Đăng nhập
                     </button>
+                    <Link
+                      to="/register"
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors"
+                    >
+                      <UserPlus size={16} /> Đăng ký
+                    </Link>
                   </div>
                 )}
               </div>
