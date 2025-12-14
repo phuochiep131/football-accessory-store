@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom"; // Thêm useNavigate
 import axios from "axios";
+import { useAuth } from "../context/AuthContext"; // Thêm useAuth
 import {
   Star,
-  Heart,
-  Tag,
   CheckCircle,
   Truck,
   ShieldCheck,
   RotateCcw,
-  Minus,
-  Plus,
-  ShoppingCart,
-  Share2,
   Ruler,
 } from "lucide-react";
 
@@ -20,12 +15,15 @@ const API_URL = "http://localhost:5000/api";
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState("description");
+  const navigate = useNavigate(); // Hook điều hướng
+  const { state } = useAuth(); // Lấy thông tin user
+
+  // State
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState("");
+  const [adding, setAdding] = useState(false); // State loading cho nút thêm giỏ
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("vi-VN", {
@@ -33,6 +31,7 @@ const ProductDetail = () => {
       currency: "VND",
     }).format(amount);
 
+  // --- FETCH DATA ---
   useEffect(() => {
     const fetchProductData = async () => {
       try {
@@ -43,15 +42,6 @@ const ProductDetail = () => {
         setMainImage(
           data.image_url || "https://placehold.co/600x600/png?text=No+Image"
         );
-
-        if (data.category_id && data.category_id._id) {
-          const relatedRes = await axios.get(
-            `${API_URL}/products?category=${data.category_id._id}`
-          );
-          setRelatedProducts(
-            relatedRes.data.filter((p) => p._id !== id).slice(0, 4)
-          );
-        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -65,6 +55,36 @@ const ProductDetail = () => {
     }
   }, [id]);
 
+  // --- HANDLE ADD TO CART ---
+  const handleAddToCart = async () => {
+    // 1. Kiểm tra đăng nhập
+    if (!state.currentUser) {
+      alert("Vui lòng đăng nhập để mua hàng!");
+      navigate("/login", { state: { from: `/product/${id}` } });
+      return;
+    }
+
+    try {
+      setAdding(true);
+      // 2. Gọi API Backend
+      await axios.post(
+        `${API_URL}/cart/add`,
+        {
+          productId: id,
+          quantity: quantity,
+        },
+        { withCredentials: true } // Quan trọng: Gửi kèm Cookie
+      );
+
+      alert("Đã thêm vào giỏ hàng thành công!");
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Lỗi khi thêm vào giỏ");
+    } finally {
+      setAdding(false);
+    }
+  };
+
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -75,14 +95,12 @@ const ProductDetail = () => {
 
   const currentPrice = product.price * (1 - (product.discount || 0) / 100);
 
-  // --- THÔNG SỐ KỸ THUẬT (MAPPING LẠI CHO BÓNG ĐÁ) ---
-  // Sử dụng các trường có sẵn trong DB nhưng hiển thị nhãn khác
   const specsList = [
     { label: "Loại giày/Áo", value: product.category_id?.category_name },
-    { label: "Size", value: product.size || "39, 40, 41, 42" }, // Giả lập nếu DB chưa có
+    { label: "Size", value: product.size || "39, 40, 41, 42" },
     { label: "Màu sắc", value: product.color },
     { label: "Chất liệu", value: product.material || "Da tổng hợp cao cấp" },
-    { label: "Loại đinh/Sân", value: product.origin || "Sân cỏ nhân tạo (TF)" }, // Tận dụng trường Origin
+    { label: "Loại đinh/Sân", value: product.origin || "Sân cỏ nhân tạo (TF)" },
     { label: "Bảo hành keo", value: product.warranty || "Trọn đời" },
   ].filter((item) => item.value);
 
@@ -120,11 +138,9 @@ const ProductDetail = () => {
               </h1>
               <div className="flex items-center gap-4 text-sm mb-4">
                 <div className="flex text-yellow-500">
-                  <Star size={16} fill="currentColor" />
-                  <Star size={16} fill="currentColor" />
-                  <Star size={16} fill="currentColor" />
-                  <Star size={16} fill="currentColor" />
-                  <Star size={16} fill="currentColor" />
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={16} fill="currentColor" />
+                  ))}
                 </div>
                 <span className="text-green-600 font-bold">Còn hàng</span>
               </div>
@@ -140,7 +156,7 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              {/* Policies - Đổi thành chính sách thể thao */}
+              {/* Policies */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                 <div className="flex items-center gap-3 text-sm p-2 bg-green-50 rounded text-green-800">
                   <CheckCircle size={18} />{" "}
@@ -159,7 +175,7 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Size Selection (Giả lập UI) */}
+              {/* Size Selection */}
               <div className="mb-6">
                 <div className="flex justify-between mb-2">
                   <span className="font-bold text-sm">Chọn Size:</span>
@@ -179,18 +195,30 @@ const ProductDetail = () => {
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="flex gap-3">
-                <button className="flex-1 bg-green-700 text-white py-4 rounded-xl font-bold hover:bg-green-800 uppercase shadow-lg shadow-green-200">
-                  Thêm vào giỏ
+                <button
+                  onClick={handleAddToCart}
+                  disabled={adding}
+                  className="flex-1 bg-green-700 text-white py-4 rounded-xl font-bold hover:bg-green-800 uppercase shadow-lg shadow-green-200 disabled:opacity-70"
+                >
+                  {adding ? "Đang xử lý..." : "Thêm vào giỏ"}
                 </button>
-                <button className="flex-1 bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black uppercase">
+                <button
+                  onClick={async () => {
+                    await handleAddToCart();
+                    navigate("/cart");
+                  }}
+                  disabled={adding}
+                  className="flex-1 bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black uppercase"
+                >
                   Mua ngay
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Tabs Spec/Desc */}
+          {/* Specs */}
           <div className="p-6 border-t border-gray-200">
             <h3 className="font-bold text-lg mb-4 uppercase border-l-4 border-green-600 pl-3">
               Thông số kỹ thuật

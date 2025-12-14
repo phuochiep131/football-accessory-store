@@ -16,6 +16,7 @@ import Dashboard from "./pages/admin/Dashboard";
 import ProductManager from "./pages/admin/ProductManager";
 import UserManager from "./pages/admin/UserManager";
 import CategoryManager from "./pages/admin/CategoryManager";
+import OrderManager from "./pages/admin/OrderManager";
 
 // --- LAYOUT COMPONENT ---
 // Layout này giúp Navbar và Footer luôn hiển thị, chỉ có phần giữa (Outlet) thay đổi
@@ -85,6 +86,7 @@ function App() {
           <Route path="products" element={<ProductManager />} />
           <Route path="users" element={<UserManager />} />
           <Route path="categories" element={<CategoryManager />} />
+          <Route path="orders" element={<OrderManager />} />
           {/* Thêm các route khác: orders, users... */}
         </Route>
       </Route>

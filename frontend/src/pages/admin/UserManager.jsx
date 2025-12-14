@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Plus, Edit, Trash2, Search, User, Mail, Phone, 
-  Calendar, MapPin, ShieldCheck, X, Save, Loader2, AlertCircle
+import axios from "axios"; // Dùng axios thay vì fetch để code gọn và chuẩn hơn
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+  ShieldCheck,
+  X,
+  Save,
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
 } from "lucide-react";
 
-// Cấu hình đường dẫn API Backend của bạn
-// Khi deploy thì đổi thành domain thật, ví dụ: 'https://api.mywebsite.com/api/users'
-const API_URL = "http://localhost:5000/api/user"; 
+// URL API
+const API_URL = "http://localhost:5000/api/user";
 
 const UserManager = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
@@ -30,28 +43,23 @@ const UserManager = () => {
     gender: "Nam",
     address: "",
     birth_date: "",
-    avatar: ""
+    avatar: "",
   };
   const [formData, setFormData] = useState(initialFormState);
 
   // --- 1. FETCH DATA (GET) ---
   const fetchUsers = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Dùng fetch hoặc axios.get(API_URL)
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Không thể kết nối đến Server");
-      
-      const data = await response.json();
-      console.log(data);
-      setUsers(data);
-      setError(null);
+      const res = await axios.get(API_URL);
+      // Axios tự động trả về data trong res.data, không cần .json()
+      // Đảm bảo luôn là mảng để tránh lỗi .filter
+      setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Lỗi fetch data:", err);
-      // MOCK DATA: Để bạn xem trước giao diện khi chưa bật Backend
-      // Xóa dòng này khi chạy thật
-      setUsers(mockUsers); 
-      setError("Không thể kết nối API (Đang hiển thị dữ liệu mẫu). Hãy chắc chắn Backend Node.js đang chạy.");
+      setError("Không thể kết nối đến Server. Hãy kiểm tra Backend.");
+      setUsers([]); // Reset về mảng rỗng để không crash
     } finally {
       setLoading(false);
     }
@@ -62,10 +70,9 @@ const UserManager = () => {
   }, []);
 
   // --- 2. HANDLERS ---
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const openAddModal = () => {
@@ -84,78 +91,80 @@ const UserManager = () => {
       phone_number: user.phone_number || "",
       gender: user.gender || "Nam",
       address: user.address || "",
-      birth_date: user.birth_date ? user.birth_date.split('T')[0] : "",
-      avatar: user.avatar || ""
+      // Chuyển đổi ngày ISO sang YYYY-MM-DD cho input date
+      birth_date: user.birth_date ? user.birth_date.split("T")[0] : "",
+      avatar: user.avatar || "",
     });
     setIsModalOpen(true);
   };
 
-  // --- 3. SUBMIT (POST / PUT) ---
+  // --- 3. SUBMIT (CREATE / UPDATE) ---
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const method = editingId ? "PUT" : "POST";
-      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
-      
       const payload = { ...formData };
+
+      // Nếu là thêm mới, backend cần password (mặc định cho user mới)
       if (!editingId) {
-          // Chỉ thêm password mặc định khi tạo mới
-          payload.password = "User@123"; 
+        payload.password = "User@123";
       }
 
-      const response = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      if (editingId) {
+        // --- UPDATE ---
+        await axios.put(`${API_URL}/${editingId}`, payload);
+        alert("Cập nhật thành công!");
+      } else {
+        // --- CREATE ---
+        await axios.post(API_URL, payload);
+        alert("Thêm người dùng mới thành công! Mật khẩu mặc định: User@123");
+      }
 
-      if (!response.ok) throw new Error("Lỗi khi lưu dữ liệu");
-
-      // Reload lại danh sách sau khi lưu thành công
-      await fetchUsers();
+      // Đóng modal và tải lại danh sách
       setIsModalOpen(false);
-      alert(editingId ? "Cập nhật thành công!" : "Thêm mới thành công!");
-
+      fetchUsers();
     } catch (err) {
       console.error(err);
-      alert("Có lỗi xảy ra: " + err.message);
+      // Hiển thị đúng thông báo lỗi từ Backend trả về
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Có lỗi xảy ra!";
+      alert("Thất bại: " + msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- 4. DELETE (DELETE) ---
+  // --- 4. DELETE ---
   const handleDelete = async (id) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa người dùng này?")) return;
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Lỗi khi xóa");
-      
-      // Cập nhật lại state UI ngay lập tức để cảm giác nhanh hơn
-      setUsers(prev => prev.filter(u => u._id !== id));
-      
+      await axios.delete(`${API_URL}/${id}`);
+      // Cập nhật giao diện ngay lập tức
+      setUsers((prev) => prev.filter((u) => u._id !== id));
+      alert("Đã xóa người dùng.");
     } catch (err) {
       console.error(err);
-      alert("Xóa thất bại: " + err.message);
+      const msg = err.response?.data?.message || "Lỗi khi xóa";
+      alert("Xóa thất bại: " + msg);
     }
   };
 
   // --- UTILS ---
   const formatDate = (dateString) => {
-    if (!dateString) return "";
+    if (!dateString) return "---";
     try {
       return new Date(dateString).toLocaleDateString("vi-VN");
-    } catch { return ""; }
+    } catch {
+      return "---";
+    }
   };
 
   const filteredUsers = users.filter((user) => {
-    const matchesSearch = 
+    const matchesSearch =
       (user.fullname?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (user.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (user.phone_number || "").includes(searchTerm);
@@ -168,12 +177,14 @@ const UserManager = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Quản lý người dùng</h2>
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <User className="text-blue-600" /> Quản lý người dùng
+          </h2>
           <p className="text-gray-500 text-sm mt-1">
-            Tổng số: {filteredUsers.length} tài khoản
+            Tổng số: {users.length} tài khoản
           </p>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm transition-all"
         >
@@ -181,18 +192,21 @@ const UserManager = () => {
         </button>
       </div>
 
-      {/* Error Banner if API fails */}
+      {/* Error Banner */}
       {error && (
-        <div className="mb-6 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-lg flex items-center gap-3">
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3">
           <AlertCircle size={20} />
-          <span className="text-sm">{error}</span>
+          <span className="text-sm font-medium">{error}</span>
         </div>
       )}
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex flex-col md:flex-row gap-4 border border-gray-100">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="text"
             placeholder="Tìm theo tên, email, sđt..."
@@ -201,7 +215,7 @@ const UserManager = () => {
             className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           />
         </div>
-        <select 
+        <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
           className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -210,6 +224,13 @@ const UserManager = () => {
           <option value="Admin">Admin</option>
           <option value="Customer">Customer</option>
         </select>
+        <button
+          onClick={fetchUsers}
+          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+          title="Tải lại dữ liệu"
+        >
+          <RefreshCcw size={18} />
+        </button>
       </div>
 
       {/* Table Area */}
@@ -217,7 +238,7 @@ const UserManager = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <Loader2 className="animate-spin mb-2" size={32} />
-            <p>Đang tải dữ liệu từ Server...</p>
+            <p>Đang tải dữ liệu...</p>
           </div>
         ) : (
           <table className="w-full text-left border-collapse min-w-[1000px]">
@@ -234,51 +255,83 @@ const UserManager = () => {
             <tbody className="text-gray-600 text-sm">
               {filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => (
-                  <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+                  <tr
+                    key={user._id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors group"
+                  >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center shrink-0 border border-gray-300">
                           {user.avatar ? (
-                            <img src={user.avatar} alt={user.fullname} className="w-full h-full object-cover" 
-                                 onError={(e) => {e.target.onerror = null; e.target.src = ''}} />
+                            <img
+                              src={user.avatar}
+                              alt={user.fullname}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "";
+                              }}
+                            />
                           ) : (
                             <User size={20} className="text-gray-500" />
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-800">{user.fullname || "Chưa đặt tên"}</p>
-                          <p className="text-xs text-gray-500">@{user.username}</p>
+                          <p className="font-semibold text-gray-800">
+                            {user.fullname || "Chưa đặt tên"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            @{user.username}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2 text-gray-700">
-                          <Mail size={14} className="text-gray-400" /> {user.email}
+                          <Mail size={14} className="text-gray-400" />{" "}
+                          {user.email}
                         </div>
                         <div className="flex items-center gap-2 text-gray-500 text-xs">
-                          <Phone size={14} className="text-gray-400" /> {user.phone_number || "---"}
+                          <Phone size={14} className="text-gray-400" />{" "}
+                          {user.phone_number || "---"}
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
-                        user.role === 'Admin' 
-                        ? 'bg-purple-100 text-purple-700 border-purple-200' 
-                        : 'bg-green-100 text-green-700 border-green-200'
-                      }`}>
-                        {user.role === 'Admin' ? <ShieldCheck size={12} /> : <User size={12} />}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
+                          user.role === "Admin"
+                            ? "bg-purple-100 text-purple-700 border-purple-200"
+                            : "bg-green-100 text-green-700 border-green-200"
+                        }`}
+                      >
+                        {user.role === "Admin" ? (
+                          <ShieldCheck size={12} />
+                        ) : (
+                          <User size={12} />
+                        )}
                         {user.role}
                       </span>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex flex-col gap-1 text-xs">
                         <div className="flex items-center gap-2">
-                           <span className={`w-2 h-2 rounded-full ${user.gender === 'Nam' ? 'bg-blue-400' : 'bg-pink-400'}`}></span>
-                           {user.gender} • {formatDate(user.birth_date)}
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              user.gender === "Nam"
+                                ? "bg-blue-400"
+                                : "bg-pink-400"
+                            }`}
+                          ></span>
+                          {user.gender} • {formatDate(user.birth_date)}
                         </div>
-                        <div className="flex items-center gap-1 text-gray-400 truncate max-w-[150px]" title={user.address}>
-                          <MapPin size={12} /> {user.address || "Chưa có địa chỉ"}
+                        <div
+                          className="flex items-center gap-1 text-gray-400 truncate max-w-[150px]"
+                          title={user.address}
+                        >
+                          <MapPin size={12} />{" "}
+                          {user.address || "Chưa có địa chỉ"}
                         </div>
                       </div>
                     </td>
@@ -290,10 +343,16 @@ const UserManager = () => {
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditModal(user)} className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-all shadow-sm">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-all shadow-sm"
+                        >
                           <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(user._id)} className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 transition-all shadow-sm">
+                        <button
+                          onClick={() => handleDelete(user._id)}
+                          className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 transition-all shadow-sm"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -303,7 +362,7 @@ const UserManager = () => {
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center py-12 text-gray-500">
-                    <p>Chưa có dữ liệu.</p>
+                    <p>Chưa có dữ liệu hoặc không tìm thấy kết quả.</p>
                   </td>
                 </tr>
               )}
@@ -320,63 +379,154 @@ const UserManager = () => {
               <h3 className="text-xl font-bold text-gray-800">
                 {editingId ? "Cập nhật User" : "Thêm mới User"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X size={24} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Inputs giống như trước, mapping đúng field của Mongoose */}
+                {/* Inputs */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Username <span className="text-red-500">*</span></label>
-                  <input required name="username" value={formData.username} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Username
+                    {/* <span className="text-red-500">*</span> */}
+                  </label>
+                  <input
+                    required
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="VD: nguyenvana"
+                    // Không cho sửa username nếu đang edit (tránh lỗi logic)
+                    // disabled={!!editingId}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label>
-                  <input name="fullname" value={formData.fullname} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Họ và tên
+                  </label>
+                  <input
+                    name="fullname"
+                    value={formData.fullname}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="VD: Nguyễn Văn A"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="VD: a@gmail.com"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
-                  <input name="phone_number" value={formData.phone_number} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Số điện thoại
+                  </label>
+                  <input
+                    name="phone_number"
+                    value={formData.phone_number}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
-                  <select name="role" value={formData.role} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vai trò
+                  </label>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                  >
                     <option value="Customer">Customer</option>
                     <option value="Admin">Admin</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giới tính</label>
-                  <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Giới tính
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                  >
                     <option value="Nam">Nam</option>
                     <option value="Nữ">Nữ</option>
                     <option value="Khác">Khác</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh</label>
-                  <input type="date" name="birth_date" value={formData.birth_date} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ngày sinh
+                  </label>
+                  <input
+                    type="date"
+                    name="birth_date"
+                    value={formData.birth_date}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Link Avatar</label>
-                  <input name="avatar" value={formData.avatar} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Link Avatar
+                  </label>
+                  <input
+                    name="avatar"
+                    value={formData.avatar}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="https://..."
+                  />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
-                  <input name="address" value={formData.address} onChange={handleInputChange} className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Địa chỉ
+                  </label>
+                  <input
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Nhập địa chỉ..."
+                  />
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Hủy bỏ</button>
-                <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : (
+                    <Save size={18} />
+                  )}
                   {isSubmitting ? "Đang lưu..." : "Lưu thông tin"}
                 </button>
               </div>
