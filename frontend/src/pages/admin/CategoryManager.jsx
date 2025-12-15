@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { Toaster, toast } from "sonner";
 import {
   Plus,
   Edit,
@@ -12,10 +14,12 @@ import {
   X,
   Loader2,
   RefreshCcw,
+  UploadCloud,
 } from "lucide-react";
 
-// URL API Backend
 const API_URL = "http://localhost:5000/api/categories";
+const CLOUD_NAME = "detransaw";
+const UPLOAD_PRESET = "web_upload";
 
 const CategoryManager = () => {
   const [categories, setCategories] = useState([]);
@@ -27,32 +31,29 @@ const CategoryManager = () => {
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
+  // Image Upload States
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const fileInputRef = useRef(null);
+
+  // --- FIX LỖI REACT: Khởi tạo giá trị mặc định là chuỗi rỗng "", KHÔNG ĐƯỢC để null/undefined ---
   const initialFormState = {
     name: "",
     description: "",
-    image: "",
-    parent_id: "",
+    image: "", // Quan trọng: Phải là chuỗi rỗng
     is_active: true,
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- 1. FETCH DATA TỪ API (THẬT) ---
+  // --- 1. FETCH DATA ---
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const data = await res.json();
-        // Đảm bảo data luôn là mảng để tránh lỗi .filter
-        setCategories(Array.isArray(data) ? data : []);
-      } else {
-        console.error("Lỗi tải danh mục");
-        setCategories([]);
-      }
+      const res = await axios.get(API_URL);
+      setCategories(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Lỗi kết nối:", error);
-      alert("Không thể kết nối đến Server!");
+      toast.error("Không thể kết nối đến Server!");
       setCategories([]);
     } finally {
       setLoading(false);
@@ -63,7 +64,45 @@ const CategoryManager = () => {
     fetchCategories();
   }, []);
 
-  // --- 2. HANDLERS ---
+  // --- 2. UPLOAD HANDLERS ---
+  const handleImageFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.warning("Ảnh quá lớn! Vui lòng chọn ảnh dưới 5MB");
+        return;
+      }
+      setSelectedImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setImagePreview("");
+    // Khi xóa ảnh, set về chuỗi rỗng để tránh lỗi uncontrolled
+    setFormData((prev) => ({ ...prev, image: "" }));
+  };
+
+  const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    try {
+      const res = await axios.post(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        formData
+      );
+      return res.data.secure_url;
+    } catch (error) {
+      console.error("Lỗi upload ảnh:", error);
+      throw new Error("Lỗi khi upload ảnh lên Cloudinary");
+    }
+  };
+
+  // --- 3. FORM HANDLERS ---
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -75,109 +114,114 @@ const CategoryManager = () => {
   const openAddModal = () => {
     setEditingId(null);
     setFormData(initialFormState);
+    setSelectedImageFile(null);
+    setImagePreview("");
     setIsModalOpen(true);
   };
 
   const openEditModal = (cat) => {
     setEditingId(cat._id);
 
-    // Xử lý parent_id nếu nó là object (populate) hay string
-    let parentIdValue = "";
-    if (cat.parent_id) {
-      parentIdValue =
-        typeof cat.parent_id === "object" ? cat.parent_id._id : cat.parent_id;
-    }
-
+    // --- FIX LỖI REACT: Fallback về "" nếu dữ liệu DB là null ---
     setFormData({
       name: cat.name || "",
       description: cat.description || "",
       image: cat.image || "",
-      parent_id: parentIdValue,
-      is_active: cat.is_active,
+      is_active: cat.is_active ?? true, // Nếu null thì mặc định true
     });
+
+    setImagePreview(cat.image || "");
+    setSelectedImageFile(null);
     setIsModalOpen(true);
   };
 
-  // --- 3. SAVE (CREATE / UPDATE API) ---
+  // --- 4. SAVE (CREATE / UPDATE) ---
   const handleSave = async (e) => {
     e.preventDefault();
+
+    // Validate cơ bản để tránh lỗi 400 từ Backend
+    if (!formData.name.trim()) {
+      toast.error("Tên danh mục không được để trống!");
+      return;
+    }
+
     setIsSubmitting(true);
+    const toastId = toast.loading("Đang xử lý...");
 
     try {
-      const method = editingId ? "PUT" : "POST";
-      const url = editingId ? `${API_URL}/${editingId}` : API_URL;
+      let finalImageUrl = formData.image;
 
-      // Xử lý payload: Nếu parent_id rỗng thì gửi null để MongoDB hiểu
+      if (selectedImageFile) {
+        finalImageUrl = await uploadToCloudinary(selectedImageFile);
+      }
+
+      // Chuẩn bị payload sạch sẽ, bỏ parent_id
       const payload = {
-        ...formData,
-        parent_id: formData.parent_id || null,
+        name: formData.name,
+        description: formData.description,
+        image: finalImageUrl, // String URL
+        is_active: formData.is_active,
       };
 
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      if (editingId) {
+        await axios.put(`${API_URL}/${editingId}`, payload, {
+          withCredentials: true,
+        });
+        toast.success("Cập nhật thành công!", { id: toastId });
+      } else {
+        await axios.post(API_URL, payload, {
+          withCredentials: true,
+        });
+        toast.success("Thêm mới thành công!", { id: toastId });
+      }
 
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
-
-      alert(editingId ? "Cập nhật thành công!" : "Thêm mới thành công!");
       setIsModalOpen(false);
-      fetchCategories(); // Load lại danh sách thật từ DB
+      fetchCategories();
     } catch (error) {
-      alert("Lỗi: " + error.message);
+      // Log lỗi ra console để debug nếu cần
+      console.error(error);
+
+      if (error.response && error.response.status === 401) {
+        toast.error("Hết phiên đăng nhập hoặc không đủ quyền!", {
+          id: toastId,
+        });
+      } else {
+        // Hiển thị lỗi chi tiết từ backend (nếu có)
+        const msg =
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message;
+        toast.error("Lỗi: " + msg, { id: toastId });
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- 4. DELETE API ---
+  // --- 5. DELETE ---
   const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa danh mục này?")) {
-      try {
-        const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-        if (res.ok) {
-          setCategories((prev) => prev.filter((c) => c._id !== id));
-        } else {
-          const data = await res.json();
-          alert("Xóa thất bại: " + data.error);
-        }
-      } catch (error) {
-        alert("Lỗi kết nối khi xóa");
-      }
+    if (!window.confirm("Xóa danh mục này?")) return;
+
+    const toastId = toast.loading("Đang xóa...");
+    try {
+      await axios.delete(`${API_URL}/${id}`, { withCredentials: true });
+      setCategories((prev) => prev.filter((c) => c._id !== id));
+      toast.success("Đã xóa danh mục", { id: toastId });
+    } catch (error) {
+      const msg = error.response?.data?.message || "Lỗi khi xóa";
+      toast.error(msg, { id: toastId });
     }
   };
 
-  // --- Helpers ---
-  const getParentName = (parentId) => {
-    if (!parentId)
-      return <span className="text-gray-400 italic">Danh mục gốc</span>;
-
-    // Xử lý cả trường hợp populate và chưa populate
-    if (typeof parentId === "object" && parentId.name) {
-      return <span className="text-blue-600 font-medium">{parentId.name}</span>;
-    }
-
-    const parent = categories.find((c) => c._id === parentId);
-    return parent ? (
-      <span className="text-blue-600 font-medium">{parent.name}</span>
-    ) : (
-      "---"
-    );
-  };
-
-  const availableParents = categories.filter((c) => c._id !== editingId);
-
-  // SỬA LỖI Ở ĐÂY: Thêm kiểm tra (c.name || "")
   const filteredCategories = categories.filter((c) =>
     (c.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="relative min-h-screen pb-10">
-      {/* Header */}
+      <Toaster position="top-right" richColors closeButton />
+
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -195,7 +239,7 @@ const CategoryManager = () => {
         </button>
       </div>
 
-      {/* Filter Bar */}
+      {/* TOOLBAR */}
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-100 flex gap-2">
         <div className="relative w-full md:w-1/2">
           <Search
@@ -213,26 +257,25 @@ const CategoryManager = () => {
         <button
           onClick={fetchCategories}
           className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
-          title="Tải lại"
         >
           <RefreshCcw size={20} />
         </button>
       </div>
 
-      {/* Table */}
+      {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 overflow-x-auto min-h-[300px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <Loader2 className="animate-spin mb-2" size={32} />
-            <p>Đang đồng bộ dữ liệu...</p>
+            <p>Đang tải dữ liệu...</p>
           </div>
         ) : (
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
               <tr>
-                <th className="py-4 px-6 w-20">Ảnh</th>
+                <th className="py-4 px-6 w-24">Ảnh</th>
                 <th className="py-4 px-6">Tên danh mục</th>
-                <th className="py-4 px-6">Thuộc danh mục (Cha)</th>
+                <th className="py-4 px-6">Mô tả</th>
                 <th className="py-4 px-6">Trạng thái</th>
                 <th className="py-4 px-6 text-center">Hành động</th>
               </tr>
@@ -251,26 +294,17 @@ const CategoryManager = () => {
                             src={cat.image}
                             alt={cat.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "";
-                            }}
                           />
                         ) : (
                           <ImageIcon size={20} className="text-gray-400" />
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="font-semibold text-gray-800 text-base">
-                        {cat.name}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate max-w-[200px]">
-                        {cat.description}
-                      </div>
+                    <td className="py-4 px-6 font-semibold text-gray-800">
+                      {cat.name}
                     </td>
-                    <td className="py-4 px-6">
-                      {getParentName(cat.parent_id)}
+                    <td className="py-4 px-6 text-xs text-gray-500 truncate max-w-[250px]">
+                      {cat.description || "---"}
                     </td>
                     <td className="py-4 px-6">
                       {cat.is_active ? (
@@ -304,10 +338,7 @@ const CategoryManager = () => {
               ) : (
                 <tr>
                   <td colSpan="5" className="text-center py-8 text-gray-500">
-                    <div className="flex flex-col items-center justify-center">
-                      <FolderTree size={48} className="text-gray-300 mb-2" />
-                      <p>Chưa có danh mục nào.</p>
-                    </div>
+                    Chưa có danh mục nào.
                   </td>
                 </tr>
               )}
@@ -318,9 +349,9 @@ const CategoryManager = () => {
 
       {/* --- MODAL --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-bold text-gray-800">
                 {editingId ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
               </h3>
@@ -332,7 +363,7 @@ const CategoryManager = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-5">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -344,45 +375,64 @@ const CategoryManager = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="VD: Điện thoại"
+                  placeholder="VD: Giày bóng đá"
                 />
               </div>
 
-              {/* Parent Category */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Danh mục cha
-                </label>
-                <select
-                  name="parent_id"
-                  value={formData.parent_id}
-                  onChange={handleInputChange}
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                >
-                  <option value="">-- Là danh mục gốc --</option>
-                  {availableParents.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Để trống nếu đây là danh mục lớn nhất (Gốc).
-                </p>
-              </div>
-
-              {/* Image URL */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Link Ảnh đại diện
+              {/* Upload Image Section */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Ảnh đại diện
                 </label>
                 <input
-                  name="image"
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="https://..."
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageFileChange}
+                  className="hidden"
                 />
+
+                {imagePreview ? (
+                  <div className="relative w-full h-40 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden group">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current.click()}
+                        className="bg-white text-blue-600 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm hover:bg-blue-50"
+                      >
+                        Thay đổi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="bg-white text-red-600 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm hover:bg-red-50"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all"
+                  >
+                    <div className="bg-blue-100 p-3 rounded-full mb-2">
+                      <UploadCloud className="text-blue-600" size={24} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">
+                      Nhấn để tải ảnh lên
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">
+                      PNG, JPG (Max 5MB)
+                    </span>
+                  </button>
+                )}
               </div>
 
               {/* Description */}
@@ -400,7 +450,7 @@ const CategoryManager = () => {
                 ></textarea>
               </div>
 
-              {/* Status Checkbox */}
+              {/* Active Checkbox */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -408,7 +458,7 @@ const CategoryManager = () => {
                   name="is_active"
                   checked={formData.is_active}
                   onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
                 />
                 <label
                   htmlFor="is_active"
@@ -418,7 +468,8 @@ const CategoryManager = () => {
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              {/* Footer */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t sticky bottom-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -429,7 +480,7 @@ const CategoryManager = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70 shadow-lg shadow-blue-200"
                 >
                   {isSubmitting ? (
                     <Loader2 className="animate-spin" size={18} />

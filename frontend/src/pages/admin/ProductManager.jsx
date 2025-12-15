@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Toaster, toast } from "sonner"; // Thư viện thông báo
+import { Toaster, toast } from "sonner";
 import {
   Plus,
   Edit,
@@ -14,8 +14,11 @@ import {
   Loader2,
   RefreshCcw,
   UploadCloud,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
+// --- CONFIG ---
 const API_BASE = "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
@@ -38,14 +41,14 @@ const ProductManager = () => {
   const [imagePreview, setImagePreview] = useState("");
   const fileInputRef = useRef(null);
 
-  // --- FORM STATE ---
+  // --- FORM STATE (Không được để null/undefined) ---
   const initialFormState = {
     product_name: "",
     price: 0,
     quantity: 0,
     discount: 0,
     category_id: "",
-    image_url: "",
+    image_url: "", // Default empty string
     description: "",
     size: "",
     color: "",
@@ -61,14 +64,18 @@ const ProductManager = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // ✅ SỬA LỖI 401: Thêm withCredentials: true (nếu backend yêu cầu admin để xem)
+      // Gọi song song để nhanh hơn
+      // Lưu ý: API products/categories public thì không cần credentials,
+      // nhưng nếu admin mới xem được thì cần thêm. Ở đây tôi thêm luôn cho chắc.
       const [productsRes, categoriesRes] = await Promise.all([
         axios.get(`${API_BASE}/products`),
         axios.get(`${API_BASE}/categories`),
       ]);
 
-      setProducts(productsRes.data);
-      setCategories(categoriesRes.data);
+      setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+      setCategories(
+        Array.isArray(categoriesRes.data) ? categoriesRes.data : []
+      );
     } catch (error) {
       console.error("Lỗi tải dữ liệu:", error);
       toast.error("Không thể kết nối đến Server!");
@@ -82,7 +89,7 @@ const ProductManager = () => {
   }, []);
 
   // ========================================================================
-  // 2. UPLOAD CLOUDINARY (Không cần credentials vì là bên thứ 3)
+  // 2. UPLOAD HANDLERS
   // ========================================================================
   const handleImageFileChange = (e) => {
     const file = e.target.files[0];
@@ -140,6 +147,7 @@ const ProductManager = () => {
     setEditingId(product._id);
     setSelectedImageFile(null);
 
+    // Xử lý category_id (phòng trường hợp populate object)
     let safeCategoryId = "";
     if (product.category_id) {
       safeCategoryId =
@@ -167,7 +175,7 @@ const ProductManager = () => {
     setIsModalOpen(true);
   };
 
-  // --- SUBMIT (CREATE / UPDATE) ---
+  // --- SUBMIT ---
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -176,15 +184,18 @@ const ProductManager = () => {
     try {
       let finalImageUrl = formData.image_url;
 
-      // 1. Upload ảnh
+      // 1. Upload ảnh nếu có file mới
       if (selectedImageFile) {
         finalImageUrl = await uploadToCloudinary(selectedImageFile);
       }
 
-      const payload = { ...formData, image_url: finalImageUrl };
+      // 2. Payload
+      const payload = {
+        ...formData,
+        image_url: finalImageUrl,
+      };
 
-      // 2. Gọi API Backend
-      // ✅ SỬA LỖI 401: Thêm { withCredentials: true } vào tham số thứ 3
+      // 3. Call API (Có credentials)
       if (editingId) {
         await axios.put(`${API_BASE}/products/${editingId}`, payload, {
           withCredentials: true,
@@ -198,17 +209,16 @@ const ProductManager = () => {
       }
 
       setIsModalOpen(false);
-      fetchData();
+      fetchData(); // Reload list
     } catch (error) {
-      // Bắt lỗi 401 cụ thể để thông báo
       if (error.response && error.response.status === 401) {
-        toast.error("Phiên đăng nhập hết hạn hoặc bạn không phải Admin!", {
+        toast.error("Hết phiên đăng nhập hoặc không đủ quyền!", {
           id: toastId,
         });
       } else {
         const msg =
           error.response?.data?.message || error.message || "Lỗi xảy ra!";
-        toast.error(msg, { id: toastId });
+        toast.error("Lỗi: " + msg, { id: toastId });
       }
     } finally {
       setIsSubmitting(false);
@@ -221,22 +231,14 @@ const ProductManager = () => {
 
     const toastId = toast.loading("Đang xóa...");
     try {
-      // ✅ SỬA LỖI 401: Thêm { withCredentials: true }
       await axios.delete(`${API_BASE}/products/${id}`, {
         withCredentials: true,
       });
-
       setProducts((prev) => prev.filter((p) => p._id !== id));
       toast.success("Đã xóa sản phẩm", { id: toastId });
     } catch (error) {
-      if (error.response && error.response.status === 401) {
-        toast.error("Bạn không có quyền xóa (401)!", { id: toastId });
-      } else {
-        toast.error(
-          "Xóa thất bại: " + (error.response?.data?.message || "Lỗi server"),
-          { id: toastId }
-        );
-      }
+      const msg = error.response?.data?.message || "Lỗi khi xóa";
+      toast.error("Xóa thất bại: " + msg, { id: toastId });
     }
   };
 
@@ -260,6 +262,7 @@ const ProductManager = () => {
   const filteredProducts = products.filter((p) => {
     const pName = (p.product_name || "").toLowerCase();
     const matchesSearch = pName.includes(searchTerm.toLowerCase());
+
     let pCatId = "";
     if (p.category_id) {
       pCatId =
@@ -267,6 +270,7 @@ const ProductManager = () => {
     }
     const matchesCategory =
       categoryFilter === "All" || pCatId === categoryFilter;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -282,7 +286,7 @@ const ProductManager = () => {
           </h2>
           <p className="text-gray-500 text-sm mt-1">
             {loading
-              ? "Đang đồng bộ..."
+              ? "Đang tải..."
               : `Tổng số: ${filteredProducts.length} sản phẩm`}
           </p>
         </div>
@@ -325,7 +329,7 @@ const ProductManager = () => {
           </select>
           <button
             onClick={fetchData}
-            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+            className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
             title="Tải lại dữ liệu"
           >
             <RefreshCcw size={18} />
@@ -344,7 +348,7 @@ const ProductManager = () => {
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
               <tr>
-                <th className="py-4 px-6 w-20">Ảnh</th>
+                <th className="py-4 px-6 w-24">Ảnh</th>
                 <th className="py-4 px-6">Tên sản phẩm</th>
                 <th className="py-4 px-6">Danh mục</th>
                 <th className="py-4 px-6">Giá & Kho</th>
@@ -566,11 +570,12 @@ const ProductManager = () => {
                     Hình ảnh & Chi tiết
                   </h4>
 
-                  {/* UPLOAD ẢNH */}
+                  {/* UPLOAD ẢNH (CHỈ DÙNG FILE) */}
                   <div className="flex flex-col gap-3">
                     <label className="block text-sm font-medium text-gray-700">
                       Hình ảnh sản phẩm
                     </label>
+
                     <input
                       type="file"
                       accept="image/*"
@@ -620,23 +625,6 @@ const ProductManager = () => {
                         </span>
                       </button>
                     )}
-
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-400 mb-1 text-center">
-                        - Hoặc dán link -
-                      </p>
-                      <input
-                        name="image_url"
-                        value={formData.image_url}
-                        onChange={(e) => {
-                          handleInputChange(e);
-                          if (!selectedImageFile)
-                            setImagePreview(e.target.value);
-                        }}
-                        className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="https://..."
-                      />
-                    </div>
                   </div>
 
                   {/* THÔNG TIN PHỤ */}
