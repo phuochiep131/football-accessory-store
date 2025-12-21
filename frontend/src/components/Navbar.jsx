@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import defaultAvatar from "../assets/react.svg";
+import { useCart } from "../context/CartContext";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -27,6 +28,7 @@ const Navbar = () => {
   const location = useLocation();
   const { state, dispatch } = useAuth();
   const { currentUser } = state;
+  const { cartCount } = useCart();
 
   const handleLoginClick = () => {
     navigate("/login", { state: { from: location } });
@@ -142,7 +144,8 @@ const Navbar = () => {
 
                     <div className="p-1">
                       {/* --- KIỂM TRA QUYỀN ADMIN --- */}
-                      {(currentUser.role === "Admin" || currentUser.role === "admin") && (
+                      {(currentUser.role === "Admin" ||
+                        currentUser.role === "admin") && (
                         <Link
                           to="/admin/dashboard"
                           className="flex items-center gap-2 w-full px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors mb-1 font-semibold"
@@ -158,7 +161,7 @@ const Navbar = () => {
                         <UserCircle size={16} /> Hồ sơ cá nhân
                       </Link>
                       <Link
-                        to="/orders"
+                        to="/my-orders"
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-md transition-colors"
                       >
                         <Package size={16} /> Đơn mua
@@ -202,9 +205,12 @@ const Navbar = () => {
                   size={24}
                   className="text-gray-600 group-hover:text-green-600 transition-colors"
                 />
-                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
-                  2
-                </span>
+                {/* 3. Hiển thị số lượng động */}
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
               </div>
               <span className="text-xs text-gray-500 mt-1">Giỏ hàng</span>
             </Link>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios"; // Thêm axios
+import axios from "axios";
+import { useCart } from "../context/CartContext"; // <--- 1. Import Context
 import {
   Minus,
   Plus,
@@ -17,26 +18,26 @@ const API_URL = "http://localhost:5000/api";
 
 const Cart = () => {
   // --- STATE ---
-  const [cartItems, setCartItems] = useState([]); // Bắt đầu bằng mảng rỗng
+  const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const navigate = useNavigate();
 
-  // --- 1. FETCH CART (GET API) ---
+  const navigate = useNavigate();
+  const { fetchCartCount } = useCart(); // <--- 2. Lấy hàm cập nhật từ Context
+
+  // --- 1. FETCH CART ---
   const fetchCart = async () => {
     try {
       setLoading(true);
       const res = await axios.get(`${API_URL}/cart`, { withCredentials: true });
 
-      // Map dữ liệu từ Backend (Nested object) sang phẳng để dễ render
       if (res.data && res.data.items) {
         const formattedItems = res.data.items.map((item) => ({
-          id: item._id, // ID của CartItem (để xóa/sửa)
+          id: item._id,
           name: item.product_id.product_name,
-          price: item.product_id.price, // Giá gốc
-          // Tính giá sau giảm
+          price: item.product_id.price,
           currentPrice: item.product_id.discount
             ? item.product_id.price * (1 - item.product_id.discount / 100)
             : item.product_id.price,
@@ -47,10 +48,12 @@ const Cart = () => {
           category: item.product_id.category_id?.category_name || "Sản phẩm",
         }));
         setCartItems(formattedItems);
+
+        // <--- 3. Cập nhật lại Navbar luôn cho chắc chắn khi vào trang này
+        fetchCartCount();
       }
     } catch (error) {
       console.error("Lỗi tải giỏ hàng:", error);
-      // Nếu chưa login (401), đá về login
       if (error.response?.status === 401) {
         navigate("/login");
       }
@@ -63,17 +66,17 @@ const Cart = () => {
     fetchCart();
   }, []);
 
-  // --- 2. UPDATE QUANTITY (PUT API) ---
+  // --- 2. UPDATE QUANTITY ---
   const updateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
     try {
-      // Gọi API cập nhật
       await axios.put(
         `${API_URL}/cart/update/${itemId}`,
         { quantity: newQuantity },
         { withCredentials: true }
       );
-      // Cập nhật UI ngay lập tức
+
+      // Cập nhật UI local
       setCartItems((prevItems) =>
         prevItems.map((item) => {
           if (item.id === itemId) {
@@ -82,6 +85,9 @@ const Cart = () => {
           return item;
         })
       );
+
+      // <--- 4. Gọi hàm này để Navbar cập nhật lại số tổng (ví dụ tổng số lượng tăng lên)
+      fetchCartCount();
     } catch (error) {
       alert(
         "Lỗi cập nhật: " + (error.response?.data?.message || error.message)
@@ -89,7 +95,7 @@ const Cart = () => {
     }
   };
 
-  // --- 3. REMOVE ITEM (DELETE API) ---
+  // --- 3. REMOVE ITEM ---
   const removeItem = async (itemId) => {
     const confirm = window.confirm(
       "Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?"
@@ -99,20 +105,23 @@ const Cart = () => {
         await axios.delete(`${API_URL}/cart/remove/${itemId}`, {
           withCredentials: true,
         });
+
         setCartItems((prevItems) =>
           prevItems.filter((item) => item.id !== itemId)
         );
+
+        // <--- 5. Gọi hàm này để số trên Navbar giảm đi ngay lập tức
+        fetchCartCount();
       } catch (error) {
         alert("Lỗi khi xóa sản phẩm");
       }
     }
   };
 
-  // --- 4. CHECKOUT (POST ORDER API) ---
+  // --- 4. CHECKOUT ---
   const handleCheckout = async () => {
     setIsCheckingOut(true);
     try {
-      // Gọi API tạo đơn hàng
       const orderData = {
         shipping_address: "Địa chỉ mặc định (User Profile)",
         note: "Khách hàng đặt qua Web",
@@ -123,8 +132,13 @@ const Cart = () => {
       });
 
       alert("Đặt hàng thành công! Mã đơn: " + res.data.order._id);
-      setCartItems([]); // Xóa sạch giỏ hàng trên UI
-      // navigate("/profile"); // Có thể điều hướng về trang đơn hàng
+
+      setCartItems([]); // Xóa UI
+
+      // <--- 6. QUAN TRỌNG: Đặt hàng xong giỏ hàng về 0, cập nhật Navbar
+      fetchCartCount();
+
+      // navigate("/profile");
     } catch (error) {
       alert(error.response?.data?.error || "Đặt hàng thất bại");
     } finally {
@@ -132,6 +146,7 @@ const Cart = () => {
     }
   };
 
+  // ... (Phần code hiển thị UI bên dưới giữ nguyên không đổi) ...
   // Mock coupon
   const handleApplyCoupon = () => {
     if (couponCode.toUpperCase() === "PITCHPRO") {
@@ -150,7 +165,6 @@ const Cart = () => {
     }).format(amount);
   };
 
-  // Tính toán tổng tiền
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.currentPrice * item.quantity,
     0
@@ -158,7 +172,6 @@ const Cart = () => {
   const shippingFee = subtotal > 5000000 ? 0 : 30000;
   const total = subtotal + shippingFee - discount;
 
-  // --- RENDER ---
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -192,7 +205,9 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      {/* Header đơn giản */}
+      {/* ... Code Giao diện giữ nguyên ... */}
+      {/* Để tiết kiệm không gian, tôi không paste lại phần UI HTML vì nó y hệt file cũ của bạn */}
+      {/* Bạn chỉ cần copy logic ở trên thay vào file của bạn là được */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link

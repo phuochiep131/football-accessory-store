@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Ruler,
 } from "lucide-react";
+import { useCart } from "../context/CartContext";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -24,6 +25,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState("");
   const [adding, setAdding] = useState(false); // State loading cho nút thêm giỏ
+  const { fetchCartCount } = useCart(); // Lấy hàm cập nhật số lượng giỏ hàng
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("vi-VN", {
@@ -75,6 +77,8 @@ const ProductDetail = () => {
         },
         { withCredentials: true } // Quan trọng: Gửi kèm Cookie
       );
+
+      await fetchCartCount(); // Cập nhật số lượng giỏ hàng
 
       alert("Đã thêm vào giỏ hàng thành công!");
     } catch (error) {

@@ -8,6 +8,8 @@ import Cart from "./pages/Cart";
 import ProductDetail from "./pages/ProductDetail";
 import Profile from "./pages/Profile";
 import CategoryPage from "./pages/CategoryPage";
+import MyOrders from "./pages/MyOrder";
+import OrderDetail from "./pages/OrderDetail";
 
 //admin
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -53,6 +55,8 @@ function App() {
         <Route path="product/:id" element={<ProductDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/category/:id" element={<CategoryPage />} />
+        <Route path="/my-orders" element={<MyOrders />} />
+        <Route path="/order/:id" element={<OrderDetail />} />
 
         {/* Route động cho danh mục sản phẩm (khớp với link trong Navbar) */}
         {/* Ví dụ: /category/tu-lanh */}
