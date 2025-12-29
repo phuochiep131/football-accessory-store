@@ -24,6 +24,10 @@ import {
   GiSocks, // Dùng cho Vớ/Tất
 } from "react-icons/gi";
 
+import MainBanner from "../assets/banner_to.jpg";
+import TopBanner from "../assets/top_banner.jpg";
+import BottomBanner from "../assets/bottom_banner.jpg";
+
 const API_URL = "http://localhost:5000/api";
 
 // --- HELPER: MAP ICON VỚI TÊN DANH MỤC (SỬ DỤNG REACT-ICONS) ---
@@ -194,10 +198,10 @@ const Home = () => {
     <div className="bg-gray-50 min-h-screen pb-12 font-sans">
       {/* --- 1. HERO SECTION --- */}
       <section className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[400px]">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[460px]">
           <div className="md:col-span-8 relative rounded-2xl overflow-hidden shadow-lg group cursor-pointer">
             <img
-              src="https://placehold.co/800x400/15803d/ffffff?text=GIÀY+CỎ+NHÂN+TẠO+2025"
+              src={MainBanner}
               alt="Main Banner"
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -220,14 +224,14 @@ const Home = () => {
           <div className="md:col-span-4 flex flex-col gap-4 h-full">
             <div className="flex-1 rounded-2xl overflow-hidden shadow-md relative cursor-pointer group">
               <img
-                src="https://placehold.co/400x200/b91c1c/ffffff?text=Áo+Đấu+CLB"
+                src={TopBanner}
                 alt="Sub 1"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
               />
             </div>
             <div className="flex-1 rounded-2xl overflow-hidden shadow-md relative cursor-pointer group">
               <img
-                src="https://placehold.co/400x200/1e293b/ffffff?text=Phụ+Kiện+Bóng+Đá"
+                src={BottomBanner}
                 alt="Sub 2"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
               />
