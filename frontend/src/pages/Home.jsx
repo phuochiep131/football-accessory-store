@@ -2,53 +2,48 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
-// --- 1. IMPORT REACT-ICONS ---
+// --- ICONS ---
 import { BiFootball, BiTime } from "react-icons/bi";
 import {
   FaFire,
   FaRunning,
   FaTshirt,
-  FaShoppingCart,
   FaChevronRight,
-  FaHeart,
-  FaMedkit,
   FaShieldAlt,
+  FaChevronDown, // Import thêm icon mũi tên xuống cho nút Xem thêm
 } from "react-icons/fa";
 import {
   GiSoccerKick,
   GiWhistle,
   GiGloves,
   GiTrophyCup,
-  GiBackpack, // Dùng cho Túi/Balo
-  GiWaterBottle, // Dùng cho Bình nước
-  GiSocks, // Dùng cho Vớ/Tất
+  GiBackpack,
+  GiWaterBottle,
+  GiSocks,
 } from "react-icons/gi";
 
+// --- COMPONENT & ASSETS ---
+import ProductCard from "../components/ProductCard"; // Import Component Card mới
 import MainBanner from "../assets/banner_to.jpg";
 import TopBanner from "../assets/top_banner.jpg";
 import BottomBanner from "../assets/bottom_banner.jpg";
 
 const API_URL = "http://localhost:5000/api";
 
-// --- HELPER: MAP ICON VỚI TÊN DANH MỤC (SỬ DỤNG REACT-ICONS) ---
+// --- HELPER CATEGORY ---
 const getCategoryStyle = (name) => {
-  if (!name) {
+  if (!name)
     return {
       icon: <GiTrophyCup size={30} />,
       color: "bg-gray-100 text-gray-600",
     };
-  }
-
   const lower = name.toLowerCase();
 
-  // --- GIÀY BÓNG ĐÁ ---
   if (lower.includes("giày"))
     return {
-      icon: <GiSoccerKick size={30} />, // Hình cầu thủ sút bóng
+      icon: <GiSoccerKick size={30} />,
       color: "bg-green-100 text-green-700",
     };
-
-  // --- BÓNG ĐÁ ---
   if (
     name.toLowerCase() === "bóng đá" ||
     (lower.includes("bóng") &&
@@ -57,73 +52,41 @@ const getCategoryStyle = (name) => {
       !lower.includes("áo"))
   )
     return {
-      icon: <BiFootball size={30} />, // Hình quả bóng
+      icon: <BiFootball size={30} />,
       color: "bg-orange-100 text-orange-600",
     };
-
-  // --- GĂNG TAY THỦ MÔN ---
   if (lower.includes("găng"))
-    return {
-      icon: <GiGloves size={30} />, // Hình găng tay
-      color: "bg-blue-100 text-blue-600",
-    };
-
-  // --- BẢO VỆ ỐNG ĐỒNG ---
+    return { icon: <GiGloves size={30} />, color: "bg-blue-100 text-blue-600" };
   if (lower.includes("bảo vệ") || lower.includes("ống đồng"))
     return {
-      icon: <FaShieldAlt size={26} />, // Hình cái khiên
+      icon: <FaShieldAlt size={26} />,
       color: "bg-teal-100 text-teal-700",
     };
-
-  // --- ÁO ĐẤU ---
   if (lower.includes("áo"))
-    return {
-      icon: <FaTshirt size={26} />, // Hình áo thun
-      color: "bg-red-100 text-red-600",
-    };
-
-  // --- TÚI & BALO ---
+    return { icon: <FaTshirt size={26} />, color: "bg-red-100 text-red-600" };
   if (lower.includes("túi") || lower.includes("balo"))
     return {
-      icon: <GiBackpack size={30} />, // Hình Balo
+      icon: <GiBackpack size={30} />,
       color: "bg-purple-100 text-purple-700",
     };
-
-  // --- VỚ & TẤT ---
   if (lower.includes("vớ") || lower.includes("tất"))
-    return {
-      icon: <GiSocks size={30} />, // Hình đôi tất
-      color: "bg-pink-100 text-pink-600",
-    };
-
-  // --- TẬP LUYỆN / CÒI ---
+    return { icon: <GiSocks size={30} />, color: "bg-pink-100 text-pink-600" };
   if (lower.includes("tập luyện"))
     return {
-      icon: <FaRunning size={28} />, // Hình người đang chạy
+      icon: <FaRunning size={28} />,
       color: "bg-yellow-100 text-yellow-700",
     };
-
-  if (lower.includes("còi") || lower.includes("trọng tài"))
+  if (lower.includes("còi"))
     return {
       icon: <GiWhistle size={30} />,
       color: "bg-yellow-100 text-yellow-700",
     };
-
-  // --- BĂNG KEO & Y TẾ ---
-  if (lower.includes("băng keo") || lower.includes("quấn"))
+  if (lower.includes("bình nước"))
     return {
-      icon: <FaMedkit size={26} />, // Hình hộp y tế
-      color: "bg-indigo-100 text-indigo-700",
-    };
-
-  // --- BÌNH NƯỚC ---
-  if (lower.includes("bình nước") || lower.includes("nước"))
-    return {
-      icon: <GiWaterBottle size={30} />, // Hình bình nước
+      icon: <GiWaterBottle size={30} />,
       color: "bg-cyan-100 text-cyan-700",
     };
 
-  // Mặc định
   return {
     icon: <GiTrophyCup size={30} />,
     color: "bg-gray-100 text-gray-600",
@@ -142,6 +105,10 @@ const Home = () => {
   const [products, setProducts] = useState([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // --- STATE SỐ LƯỢNG HIỂN THỊ ---
+  const [visibleCount, setVisibleCount] = useState(8); // Mặc định hiện 8 sản phẩm
+
   const [timeLeft, setTimeLeft] = useState({
     hours: 5,
     minutes: 0,
@@ -158,6 +125,7 @@ const Home = () => {
         setCategories(categoryRes.data);
         const allProducts = productRes.data;
 
+        // Lọc sản phẩm sale
         const saleItems = Array.isArray(allProducts)
           ? allProducts.filter((p) => p.discount && p.discount > 0)
           : [];
@@ -173,6 +141,7 @@ const Home = () => {
     fetchData();
   }, []);
 
+  // Timer Effect
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -187,6 +156,11 @@ const Home = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // --- HÀM XEM THÊM ---
+  const handleLoadMore = () => {
+    setVisibleCount((prev) => prev + 8);
+  };
+
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center font-bold text-green-600 gap-2">
@@ -196,7 +170,7 @@ const Home = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12 font-sans">
-      {/* --- 1. HERO SECTION --- */}
+      {/* --- 1. HERO SECTION (Giữ nguyên Banner Tĩnh) --- */}
       <section className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[460px]">
           <div className="md:col-span-8 relative rounded-2xl overflow-hidden shadow-lg group cursor-pointer">
@@ -266,7 +240,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* --- 3. FLASH SALE --- */}
+      {/* --- 3. FLASH SALE (Giữ nguyên dạng card riêng để có thanh progress bar) --- */}
       {flashSaleProducts.length > 0 && (
         <section className="bg-white py-8 border-y border-gray-200 mb-8">
           <div className="container mx-auto px-4">
@@ -293,24 +267,19 @@ const Home = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {flashSaleProducts.map((product) => {
-                const originalPrice = product.price;
                 const currentPrice =
-                  originalPrice * (1 - product.discount / 100);
+                  product.price * (1 - product.discount / 100);
                 const soldMock = Math.floor(Math.random() * 50) + 10;
-
                 return (
                   <div
                     key={product._id}
                     className="border border-red-100 rounded-lg p-3 hover:shadow-lg transition-shadow relative bg-white"
                   >
                     <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded skew-x-[-10deg]">
-                      -{product.discount}%
+                      - {product.discount}%
                     </div>
                     <img
-                      src={
-                        product.image_url ||
-                        "https://placehold.co/300x300?text=Giày+Bóng+Đá"
-                      }
+                      src={product.image_url || "https://placehold.co/300x300"}
                       alt={product.product_name}
                       className="w-full h-40 object-contain mb-3 rounded"
                     />
@@ -322,9 +291,10 @@ const Home = () => {
                         {formatCurrency(currentPrice)}
                       </span>
                       <span className="text-gray-400 text-xs line-through">
-                        {formatCurrency(originalPrice)}
+                        {formatCurrency(product.price)}
                       </span>
                     </div>
+                    {/* Progress Bar riêng cho Flash Sale */}
                     <div className="mt-3 relative h-4 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 to-orange-500"
@@ -342,7 +312,7 @@ const Home = () => {
         </section>
       )}
 
-      {/* --- 4. FEATURED PRODUCTS --- */}
+      {/* --- 4. FEATURED PRODUCTS (Dùng ProductCard & Logic Load More) --- */}
       <section className="container mx-auto px-4 mb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-200 pb-4">
           <h3 className="text-2xl font-bold text-gray-800 uppercase border-l-4 border-green-600 pl-3">
@@ -369,63 +339,24 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Grid Sản Phẩm sử dụng ProductCard component */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product) => {
-            const hasDiscount = product.discount && product.discount > 0;
-            const currentPrice = hasDiscount
-              ? product.price * (1 - product.discount / 100)
-              : product.price;
-
-            return (
-              <Link to={`/product/${product._id}`} key={product._id}>
-                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-xl hover:border-green-200 transition-all duration-300 group flex flex-col h-full">
-                  <div className="relative p-4 bg-gray-50 h-56 flex items-center justify-center">
-                    <img
-                      src={
-                        product.image_url ||
-                        "https://placehold.co/400x400?text=Sản+Phẩm"
-                      }
-                      alt={product.product_name}
-                      className="max-h-full max-w-full object-contain group-hover:scale-110 transition-transform duration-300"
-                    />
-                    {hasDiscount && (
-                      <span className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
-                        GIẢM {product.discount}%
-                      </span>
-                    )}
-                    <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
-                      <button className="bg-white p-2 rounded-full shadow hover:bg-red-50 hover:text-red-500 text-gray-400 transition-colors">
-                        <FaHeart size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex-1 flex flex-col">
-                    <h3 className="text-gray-800 font-bold text-sm md:text-base line-clamp-2 mb-2 h-10 md:h-12 leading-tight group-hover:text-green-600 transition-colors uppercase">
-                      {product.product_name}
-                    </h3>
-
-                    <div className="mt-auto">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-red-600 font-bold text-lg md:text-xl">
-                          {formatCurrency(currentPrice)}
-                        </span>
-                      </div>
-                      {hasDiscount && (
-                        <div className="text-gray-400 text-xs line-through mt-0.5">
-                          {formatCurrency(product.price)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <button className="m-3 bg-gray-900 text-white py-3 font-bold uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition-all rounded-lg">
-                    <FaShoppingCart size={18} /> Mua ngay
-                  </button>
-                </div>
-              </Link>
-            );
-          })}
+          {products.slice(0, visibleCount).map((product) => (
+            <ProductCard key={product._id} product={product} />
+          ))}
         </div>
+
+        {/* Nút Xem Thêm */}
+        {visibleCount < products.length && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={handleLoadMore}
+              className="bg-white border-2 border-green-600 text-green-600 px-8 py-2.5 rounded-full font-bold hover:bg-green-600 hover:text-white transition-all inline-flex items-center gap-2 cursor-pointer shadow-sm uppercase text-sm"
+            >
+              Xem thêm sản phẩm <FaChevronDown size={14} />
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

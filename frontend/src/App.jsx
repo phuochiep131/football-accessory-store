@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import CategoryPage from "./pages/CategoryPage";
 import MyOrders from "./pages/MyOrder";
 import OrderDetail from "./pages/OrderDetail";
+import SearchPage from "./pages/SearchPage";
 
 //admin
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -30,7 +31,7 @@ const MainLayout = () => {
 
       {/* Phần nội dung chính sẽ thay đổi tùy theo trang */}
       {/* flex-grow giúp đẩy Footer xuống dưới cùng nếu nội dung trang ngắn */}
-      <main className="flex-grow bg-gray-50">
+      <main className="flex-grow bg-gray-50 pt-[100px] md:pt-[160px]">
         <Outlet />
       </main>
 
@@ -57,19 +58,8 @@ function App() {
         <Route path="/category/:id" element={<CategoryPage />} />
         <Route path="/my-orders" element={<MyOrders />} />
         <Route path="/order/:id" element={<OrderDetail />} />
+        <Route path="/search" element={<SearchPage />} />
 
-        {/* Route động cho danh mục sản phẩm (khớp với link trong Navbar) */}
-        {/* Ví dụ: /category/tu-lanh */}
-        <Route
-          path="category/:slug"
-          element={
-            <div className="p-20 text-center text-xl">
-              Trang danh mục đang phát triển...
-            </div>
-          }
-        />
-
-        {/* Route bắt lỗi 404 */}
         <Route
           path="*"
           element={
