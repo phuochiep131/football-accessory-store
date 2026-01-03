@@ -10,6 +10,7 @@ router.post("/create", orderController.create);
 router.get("/my-orders", orderController.getMyOrders);
 router.get("/detail/:id", orderController.getOrderDetail);
 router.put("/cancel/:id", orderController.cancelOrder);
+router.get('/vnpay-verify', orderController.verifyPayment);
 
 // Admin Routes (Thêm đoạn này)
 router.get("/admin/all", isAdmin, orderController.getAllOrders);

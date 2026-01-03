@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext"; // <--- 1. Import AuthContext
+import { useAuth } from "../context/AuthContext";
 import { Toaster, toast } from "sonner";
 import {
   MapPin,
@@ -24,19 +24,16 @@ const API_URL = "http://localhost:5000/api";
 const Checkout = () => {
   const navigate = useNavigate();
   const { fetchCartCount } = useCart();
-  const { state: authState } = useAuth(); // <--- 2. Lấy thông tin user
+  const { state: authState } = useAuth();
   const { currentUser } = authState;
 
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
-  // --- STATE QUẢN LÝ CHẾ ĐỘ NHẬP LIỆU ---
-  // 'default': Dùng thông tin từ Profile
-  // 'new': Nhập mới hoàn toàn
+  // 'default': Dùng thông tin từ Profile, 'new': Nhập mới
   const [addressMode, setAddressMode] = useState("default");
 
-  // Form State
   const [formData, setFormData] = useState({
     fullname: "",
     phone: "",
@@ -48,7 +45,7 @@ const Checkout = () => {
 
   const [paymentMethod, setPaymentMethod] = useState("COD");
 
-  // --- 3. EFFECT: TỰ ĐỘNG ĐIỀN THÔNG TIN ---
+  // Effect: Tự động điền thông tin từ profile
   useEffect(() => {
     if (addressMode === "default" && currentUser) {
       setFormData((prev) => ({
@@ -56,14 +53,11 @@ const Checkout = () => {
         fullname: currentUser.fullname || "",
         phone: currentUser.phone_number || "",
         address: currentUser.address || "",
-        // Lưu ý: User model hiện tại chỉ có 1 trường address chung,
-        // nên city/district ta để trống để user tự điền bổ sung nếu thiếu
         city: prev.city || "",
         district: prev.district || "",
         note: "",
       }));
     } else if (addressMode === "new") {
-      // Nếu chọn nhập mới -> Reset form
       setFormData({
         fullname: "",
         phone: "",
@@ -75,7 +69,7 @@ const Checkout = () => {
     }
   }, [addressMode, currentUser]);
 
-  // 4. Load dữ liệu giỏ hàng
+  // Load dữ liệu giỏ hàng
   useEffect(() => {
     const fetchCartData = async () => {
       try {
@@ -117,36 +111,35 @@ const Checkout = () => {
   const shippingFee = subtotal > 5000000 ? 0 : 30000;
   const total = subtotal + shippingFee;
 
-  // 5. Xử lý đặt hàng
+  // Xử lý đặt hàng & Thanh toán VNPay
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-
     if (!formData.fullname || !formData.phone || !formData.address) {
-      toast.warning("Vui lòng điền đầy đủ thông tin giao hàng!");
+      toast.warning("Vui lòng điền đầy đủ thông tin!");
       return;
     }
-
     setProcessing(true);
     try {
-      const fullAddress = `${formData.address}, ${formData.district}, ${formData.city}`;
-
       const orderData = {
-        shipping_address: fullAddress,
+        shipping_address: `${formData.address}, ${formData.district}, ${formData.city}`,
         phone_number: formData.phone,
         fullname: formData.fullname,
-        note: formData.note,
         payment_method: paymentMethod,
       };
 
-      await axios.post(`${API_URL}/orders/create`, orderData, {
+      const res = await axios.post(`${API_URL}/orders/create`, orderData, {
         withCredentials: true,
       });
 
-      toast.success("Đặt hàng thành công!");
-      fetchCartCount();
-      navigate("/my-orders");
+      if (paymentMethod === "VNPAY" && res.data.paymentUrl) {
+        // CHUYỂN HƯỚNG SANG CỔNG THANH TOÁN VNPAY
+        window.location.href = res.data.paymentUrl;
+      } else {
+        fetchCartCount();
+        toast.success("Đặt hàng thành công!");
+        navigate("/my-orders");
+      }
     } catch (error) {
-      console.error(error);
       toast.error(error.response?.data?.error || "Đặt hàng thất bại.");
     } finally {
       setProcessing(false);
@@ -162,7 +155,8 @@ const Checkout = () => {
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Đang tải...
+        <Loader2 className="animate-spin text-blue-600 mr-2" /> Đang tải thông
+        tin thanh toán...
       </div>
     );
 
@@ -196,40 +190,36 @@ const Checkout = () => {
           onSubmit={handlePlaceOrder}
           className="flex flex-col lg:flex-row gap-8"
         >
-          {/* --- LEFT COLUMN --- */}
+          {/* LEFT: Thông tin khách hàng */}
           <div className="w-full lg:w-2/3 space-y-6">
-            {/* 1. Chọn địa chỉ (New Logic) */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <MapPin className="text-blue-600" size={20} /> Thông tin giao
                 hàng
               </h3>
 
-              {/* Tabs chọn chế độ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div
                   onClick={() => setAddressMode("default")}
                   className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
                     addressMode === "default"
                       ? "border-blue-600 bg-blue-50/50"
-                      : "border-gray-200 hover:border-gray-300"
+                      : "border-gray-200"
                   }`}
                 >
                   <div
                     className={`mt-1 p-1 rounded-full ${
                       addressMode === "default"
                         ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-500"
+                        : "bg-gray-200"
                     }`}
                   >
                     <Home size={16} />
                   </div>
                   <div>
-                    <span className="block font-bold text-gray-900 text-sm">
-                      Địa chỉ mặc định
-                    </span>
+                    <span className="block font-bold text-sm">Mặc định</span>
                     <span className="text-xs text-gray-500">
-                      Sử dụng thông tin từ hồ sơ cá nhân của bạn.
+                      Sử dụng thông tin profile.
                     </span>
                   </div>
                   {addressMode === "default" && (
@@ -242,24 +232,22 @@ const Checkout = () => {
                   className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
                     addressMode === "new"
                       ? "border-blue-600 bg-blue-50/50"
-                      : "border-gray-200 hover:border-gray-300"
+                      : "border-gray-200"
                   }`}
                 >
                   <div
                     className={`mt-1 p-1 rounded-full ${
                       addressMode === "new"
                         ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-500"
+                        : "bg-gray-200"
                     }`}
                   >
                     <Plus size={16} />
                   </div>
                   <div>
-                    <span className="block font-bold text-gray-900 text-sm">
-                      Địa chỉ mới
-                    </span>
+                    <span className="block font-bold text-sm">Địa chỉ mới</span>
                     <span className="text-xs text-gray-500">
-                      Nhập tên, số điện thoại và địa chỉ nhận hàng khác.
+                      Nhập địa chỉ nhận hàng khác.
                     </span>
                   </div>
                   {addressMode === "new" && (
@@ -268,12 +256,9 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Form nhập liệu */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
+                  <label className="text-sm font-medium">Họ và tên *</label>
                   <div className="relative">
                     <User
                       className="absolute left-3 top-2.5 text-gray-400"
@@ -281,8 +266,7 @@ const Checkout = () => {
                     />
                     <input
                       type="text"
-                      placeholder="Nguyễn Văn A"
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                       value={formData.fullname}
                       onChange={(e) =>
                         setFormData({ ...formData, fullname: e.target.value })
@@ -293,9 +277,7 @@ const Checkout = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </label>
+                  <label className="text-sm font-medium">Số điện thoại *</label>
                   <div className="relative">
                     <Phone
                       className="absolute left-3 top-2.5 text-gray-400"
@@ -303,8 +285,7 @@ const Checkout = () => {
                     />
                     <input
                       type="tel"
-                      placeholder="0912..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                       value={formData.phone}
                       onChange={(e) =>
                         setFormData({ ...formData, phone: e.target.value })
@@ -315,13 +296,12 @@ const Checkout = () => {
                 </div>
 
                 <div className="md:col-span-2 space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Địa chỉ cụ thể <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium">
+                    Địa chỉ cụ thể *
                   </label>
                   <input
                     type="text"
-                    placeholder="Số nhà, tên đường, tòa nhà..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     value={formData.address}
                     onChange={(e) =>
                       setFormData({ ...formData, address: e.target.value })
@@ -331,13 +311,12 @@ const Checkout = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Tỉnh / Thành phố <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium">
+                    Tỉnh / Thành phố *
                   </label>
                   <input
                     type="text"
-                    placeholder="VD: Hà Nội"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     value={formData.city}
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
@@ -347,13 +326,10 @@ const Checkout = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Quận / Huyện <span className="text-red-500">*</span>
-                  </label>
+                  <label className="text-sm font-medium">Quận / Huyện *</label>
                   <input
                     type="text"
-                    placeholder="VD: Cầu Giấy"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     value={formData.district}
                     onChange={(e) =>
                       setFormData({ ...formData, district: e.target.value })
@@ -363,7 +339,7 @@ const Checkout = () => {
                 </div>
 
                 <div className="md:col-span-2 space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium">
                     Ghi chú (Tùy chọn)
                   </label>
                   <div className="relative">
@@ -373,8 +349,7 @@ const Checkout = () => {
                     />
                     <textarea
                       rows="2"
-                      placeholder="VD: Giao giờ hành chính..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                       value={formData.note}
                       onChange={(e) =>
                         setFormData({ ...formData, note: e.target.value })
@@ -385,7 +360,7 @@ const Checkout = () => {
               </div>
             </div>
 
-            {/* 2. Phương thức thanh toán */}
+            {/* PHƯƠNG THỨC THANH TOÁN */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <CreditCard className="text-blue-600" size={20} /> Phương thức
@@ -397,13 +372,12 @@ const Checkout = () => {
                   className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
                     paymentMethod === "COD"
                       ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                      : "border-gray-200 hover:border-blue-200"
+                      : "border-gray-200"
                   }`}
                 >
                   <input
                     type="radio"
                     name="payment"
-                    className="w-5 h-5 text-blue-600 focus:ring-blue-500 accent-blue-600"
                     checked={paymentMethod === "COD"}
                     onChange={() => setPaymentMethod("COD")}
                   />
@@ -414,35 +388,34 @@ const Checkout = () => {
                     <span className="font-bold text-gray-900 block">
                       Thanh toán khi nhận hàng (COD)
                     </span>
-                    <span className="text-sm text-gray-500">
-                      Thanh toán tiền mặt cho shipper khi nhận được hàng.
+                    <span className="text-xs text-gray-500">
+                      Trả tiền mặt khi shipper giao hàng.
                     </span>
                   </div>
                 </label>
 
                 <label
                   className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
-                    paymentMethod === "BANKING"
+                    paymentMethod === "VNPAY"
                       ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                      : "border-gray-200 hover:border-blue-200"
+                      : "border-gray-200"
                   }`}
                 >
                   <input
                     type="radio"
                     name="payment"
-                    className="w-5 h-5 text-blue-600 focus:ring-blue-500 accent-blue-600"
-                    checked={paymentMethod === "BANKING"}
-                    onChange={() => setPaymentMethod("BANKING")}
+                    checked={paymentMethod === "VNPAY"}
+                    onChange={() => setPaymentMethod("VNPAY")}
                   />
                   <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
                     <QrCode size={24} />
                   </div>
                   <div className="flex-1">
                     <span className="font-bold text-gray-900 block">
-                      Chuyển khoản ngân hàng (QR Code)
+                      Thanh toán qua VNPAY (Thẻ/QR Code)
                     </span>
-                    <span className="text-sm text-gray-500">
-                      Quét mã QR để thanh toán nhanh chóng.
+                    <span className="text-xs text-gray-500">
+                      Thanh toán nhanh qua ứng dụng ngân hàng.
                     </span>
                   </div>
                 </label>
@@ -450,42 +423,41 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* --- RIGHT COLUMN --- */}
+          {/* RIGHT: Tóm tắt đơn hàng */}
           <div className="w-full lg:w-1/3">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 sticky top-24">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold mb-4 pb-4 border-b">
                 Đơn hàng của bạn
               </h3>
-
-              <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+              <div className="space-y-4 mb-6 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3">
-                    <div className="w-14 h-14 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0 relative">
+                    <div className="w-14 h-14 border rounded-lg overflow-hidden flex-shrink-0 relative">
                       <img
                         src={item.image}
                         alt=""
                         className="w-full h-full object-cover"
                       />
-                      <span className="absolute bottom-0 right-0 bg-gray-900 text-white text-[10px] px-1.5 rounded-tl-md font-bold">
+                      <span className="absolute bottom-0 right-0 bg-gray-900 text-white text-[10px] px-1.5 rounded-tl-md">
                         x{item.quantity}
                       </span>
                     </div>
                     <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-800 line-clamp-2">
+                      <h4 className="text-sm font-medium line-clamp-2">
                         {item.name}
                       </h4>
                       <p className="text-xs text-gray-500 mt-1">
                         {formatCurrency(item.currentPrice)}
                       </p>
                     </div>
-                    <div className="text-sm font-bold text-gray-900">
+                    <div className="text-sm font-bold">
                       {formatCurrency(item.currentPrice * item.quantity)}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-3 border-t border-gray-100 pt-4 text-sm text-gray-600">
+              <div className="space-y-3 border-t pt-4 text-sm text-gray-600">
                 <div className="flex justify-between">
                   <span>Tạm tính</span>
                   <span>{formatCurrency(subtotal)}</span>
@@ -500,10 +472,8 @@ const Checkout = () => {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center border-t border-gray-100 pt-4 mt-4">
-                <span className="text-base font-bold text-gray-800">
-                  Tổng cộng
-                </span>
+              <div className="flex justify-between items-center border-t pt-4 mt-4">
+                <span className="font-bold text-gray-800">Tổng cộng</span>
                 <span className="text-2xl font-black text-blue-600">
                   {formatCurrency(total)}
                 </span>
@@ -512,17 +482,15 @@ const Checkout = () => {
               <button
                 type="submit"
                 disabled={processing}
-                className="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {processing ? (
                   <>
-                    {" "}
-                    <Loader2 className="animate-spin" /> Đang xử lý...{" "}
+                    <Loader2 className="animate-spin" /> Đang xử lý...
                   </>
                 ) : (
                   <>
-                    {" "}
-                    <CheckCircle size={20} /> Đặt hàng ngay ({cartItems.length}){" "}
+                    <CheckCircle size={20} /> Đặt hàng ngay
                   </>
                 )}
               </button>

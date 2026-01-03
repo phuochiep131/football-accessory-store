@@ -12,6 +12,7 @@ import MyOrders from "./pages/MyOrder";
 import OrderDetail from "./pages/OrderDetail";
 import SearchPage from "./pages/SearchPage";
 import Checkout from "./pages/Checkout";
+import VnpayReturn from "./pages/VnpayReturn";
 
 //admin
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -50,7 +51,6 @@ function App() {
       <Route path="/" element={<MainLayout />}>
         {/* Route Index: Trang chủ (hiển thị khi vào đường dẫn /) */}
         <Route index element={<Home />} />
-
         {/* Các Route con */}
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
@@ -60,9 +60,10 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/category/:id" element={<CategoryPage />} />
         <Route path="/my-orders" element={<MyOrders />} />
+        <Route path="/order/vnpay_return" element={<VnpayReturn />} />
         <Route path="/order/:id" element={<OrderDetail />} />
-        <Route path="/search" element={<SearchPage />} />
-
+        <Route path="/search" element={<SearchPage />} />      
+        
         <Route
           path="*"
           element={

@@ -14,11 +14,15 @@ const OrderSchema = new Schema(
     },
     note: { type: String },
     discount_amount: { type: Number, default: 0 },
-    payment_id: { type: Schema.Types.ObjectId, ref: "Payment" },
+    
+    // Liên kết tới Payment
+    payment_id: { type: Schema.Types.ObjectId, ref: "Payment", default: null },
+    
     shipping_id: { type: Schema.Types.ObjectId, ref: "Shipping" },
   },
   {
-    timestamps: { createdAt: false, updatedAt: "updated_at" },
+    // BẬT TIMESTAMP ĐỂ CÓ createdAt CHO VIỆC SẮP XẾP
+    timestamps: true 
   }
 );
 
