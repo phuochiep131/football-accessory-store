@@ -13,6 +13,7 @@ import {
   Search,
   Menu,
   ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 
 const AdminLayout = () => {
@@ -60,6 +61,11 @@ const AdminLayout = () => {
       path: "/admin/users",
       name: "Người dùng",
       icon: <Users size={20} />,
+    },
+    {
+      path: "/admin/reviews",
+      name: "Đánh giá",
+      icon: <MessageSquare size={20} />,
     },
   ];
 

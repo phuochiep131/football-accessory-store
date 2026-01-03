@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useCart } from "../context/CartContext"; // <--- 1. Import Context
+import { useCart } from "../context/CartContext";
 import {
   Minus,
   Plus,
@@ -22,10 +22,9 @@ const Cart = () => {
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const navigate = useNavigate();
-  const { fetchCartCount } = useCart(); // <--- 2. Lấy hàm cập nhật từ Context
+  const { fetchCartCount } = useCart();
 
   // --- 1. FETCH CART ---
   const fetchCart = async () => {
@@ -45,11 +44,9 @@ const Cart = () => {
             item.product_id.image_url ||
             "https://placehold.co/200x200/png?text=No+Image",
           quantity: item.quantity,
-          category: item.product_id.category_id?.category_name || "Sản phẩm",
+          category: item.product_id.category_id?.name || "Sản phẩm",
         }));
         setCartItems(formattedItems);
-
-        // <--- 3. Cập nhật lại Navbar luôn cho chắc chắn khi vào trang này
         fetchCartCount();
       }
     } catch (error) {
@@ -76,7 +73,6 @@ const Cart = () => {
         { withCredentials: true }
       );
 
-      // Cập nhật UI local
       setCartItems((prevItems) =>
         prevItems.map((item) => {
           if (item.id === itemId) {
@@ -85,8 +81,6 @@ const Cart = () => {
           return item;
         })
       );
-
-      // <--- 4. Gọi hàm này để Navbar cập nhật lại số tổng (ví dụ tổng số lượng tăng lên)
       fetchCartCount();
     } catch (error) {
       alert(
@@ -109,8 +103,6 @@ const Cart = () => {
         setCartItems((prevItems) =>
           prevItems.filter((item) => item.id !== itemId)
         );
-
-        // <--- 5. Gọi hàm này để số trên Navbar giảm đi ngay lập tức
         fetchCartCount();
       } catch (error) {
         alert("Lỗi khi xóa sản phẩm");
@@ -118,36 +110,12 @@ const Cart = () => {
     }
   };
 
-  // --- 4. CHECKOUT ---
-  const handleCheckout = async () => {
-    setIsCheckingOut(true);
-    try {
-      const orderData = {
-        shipping_address: "Địa chỉ mặc định (User Profile)",
-        note: "Khách hàng đặt qua Web",
-      };
-
-      const res = await axios.post(`${API_URL}/orders/create`, orderData, {
-        withCredentials: true,
-      });
-
-      alert("Đặt hàng thành công! Mã đơn: " + res.data.order._id);
-
-      setCartItems([]); // Xóa UI
-
-      // <--- 6. QUAN TRỌNG: Đặt hàng xong giỏ hàng về 0, cập nhật Navbar
-      fetchCartCount();
-
-      // navigate("/profile");
-    } catch (error) {
-      alert(error.response?.data?.error || "Đặt hàng thất bại");
-    } finally {
-      setIsCheckingOut(false);
-    }
+  // --- 4. NAVIGATE TO CHECKOUT ---
+  const handleCheckout = () => {
+    navigate("/checkout");
   };
 
-  // ... (Phần code hiển thị UI bên dưới giữ nguyên không đổi) ...
-  // Mock coupon
+  // --- COUPON MOCK ---
   const handleApplyCoupon = () => {
     if (couponCode.toUpperCase() === "PITCHPRO") {
       setDiscount(50000);
@@ -205,9 +173,6 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      {/* ... Code Giao diện giữ nguyên ... */}
-      {/* Để tiết kiệm không gian, tôi không paste lại phần UI HTML vì nó y hệt file cũ của bạn */}
-      {/* Bạn chỉ cần copy logic ở trên thay vào file của bạn là được */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link
@@ -448,15 +413,9 @@ const Cart = () => {
               <button
                 className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 mb-4 disabled:opacity-50"
                 onClick={handleCheckout}
-                disabled={isCheckingOut}
+                disabled={loading || cartItems.length === 0}
               >
-                {isCheckingOut ? (
-                  <span className="animate-pulse">Đang xử lý...</span>
-                ) : (
-                  <>
-                    Tiến hành thanh toán <CreditCard size={20} />
-                  </>
-                )}
+                Tiến hành thanh toán <CreditCard size={20} />
               </button>
 
               <div className="text-center">

@@ -18,6 +18,7 @@ import {
   RefreshCcw,
   UploadCloud,
   Image as ImageIcon,
+  Lock, // Import icon Lock
 } from "lucide-react";
 
 // --- CONFIG ---
@@ -44,6 +45,7 @@ const UserManager = () => {
   // Form State
   const initialFormState = {
     username: "",
+    password: "", // Thêm trường password
     fullname: "",
     email: "",
     role: "Customer",
@@ -51,7 +53,7 @@ const UserManager = () => {
     gender: "Nam",
     address: "",
     birth_date: "",
-    avatar: "", // Link ảnh (String)
+    avatar: "",
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -123,7 +125,7 @@ const UserManager = () => {
 
   const openAddModal = () => {
     setEditingId(null);
-    setFormData(initialFormState);
+    setFormData(initialFormState); // Reset form bao gồm password rỗng
     setSelectedImageFile(null);
     setImagePreview("");
     setIsModalOpen(true);
@@ -133,6 +135,7 @@ const UserManager = () => {
     setEditingId(user._id);
     setFormData({
       username: user.username || "",
+      password: "", // Không hiển thị password cũ
       fullname: user.fullname || "",
       email: user.email || "",
       role: user.role || "Customer",
@@ -143,7 +146,6 @@ const UserManager = () => {
       avatar: user.avatar || "",
     });
 
-    // Set preview ảnh cũ (nếu có)
     setImagePreview(user.avatar || "");
     setSelectedImageFile(null);
 
@@ -159,22 +161,31 @@ const UserManager = () => {
     try {
       let finalAvatarUrl = formData.avatar;
 
-      // 1. Nếu có file mới -> Upload lên Cloudinary
       if (selectedImageFile) {
         finalAvatarUrl = await uploadToCloudinary(selectedImageFile);
       }
 
-      // 2. Chuẩn bị payload
       const payload = {
         ...formData,
         avatar: finalAvatarUrl,
       };
 
-      if (!editingId) {
-        payload.password = "User@123"; // Mật khẩu mặc định
+      // Nếu tạo mới mà không nhập pass -> Lỗi (hoặc set default)
+      if (!editingId && !payload.password) {
+        // Bạn có thể chọn: Bắt buộc nhập hoặc tự sinh password
+        // Ở đây tôi chọn bắt buộc nhập để admin kiểm soát
+        toast.error("Vui lòng nhập mật khẩu cho người dùng mới!", {
+          id: toastId,
+        });
+        setIsSubmitting(false);
+        return;
       }
 
-      // 3. Gọi API
+      // Nếu đang update mà password rỗng -> Xóa trường password khỏi payload để không bị ghi đè thành chuỗi rỗng
+      if (editingId && !payload.password) {
+        delete payload.password;
+      }
+
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, payload, {
           withCredentials: true,
@@ -182,7 +193,7 @@ const UserManager = () => {
         toast.success("Cập nhật thành công!", { id: toastId });
       } else {
         await axios.post(API_URL, payload, { withCredentials: true });
-        toast.success("Thêm mới thành công! (Pass: User@123)", { id: toastId });
+        toast.success("Thêm mới thành công!", { id: toastId });
       }
 
       setIsModalOpen(false);
@@ -242,7 +253,7 @@ const UserManager = () => {
     <div className="relative min-h-screen pb-10">
       <Toaster position="top-right" richColors closeButton />
 
-      {/* HEADER */}
+      {/* HEADER & FILTER BAR GIỮ NGUYÊN */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -260,7 +271,6 @@ const UserManager = () => {
         </button>
       </div>
 
-      {/* FILTER BAR */}
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-100 flex gap-2">
         <div className="relative flex-1">
           <Search
@@ -289,11 +299,11 @@ const UserManager = () => {
           className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
           title="Tải lại"
         >
-          <RefreshCcw size={20} />
+          <RefreshCcw size={18} />
         </button>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE GIỮ NGUYÊN (Code cũ của bạn ở trên đã tốt rồi) */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 overflow-x-auto min-h-[300px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -449,7 +459,7 @@ const UserManager = () => {
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* CỘT TRÁI: Avatar Upload */}
+                {/* CỘT TRÁI: Avatar Upload (GIỮ NGUYÊN) */}
                 <div className="md:col-span-1 flex flex-col items-center gap-4">
                   <div className="relative group w-40 h-40">
                     <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow-md flex items-center justify-center bg-gray-50">
@@ -464,7 +474,6 @@ const UserManager = () => {
                       )}
                     </div>
 
-                    {/* Overlay Upload Button */}
                     <div
                       className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
                       onClick={() => fileInputRef.current.click()}
@@ -473,7 +482,6 @@ const UserManager = () => {
                     </div>
                   </div>
 
-                  {/* Hidden Input */}
                   <input
                     type="file"
                     accept="image/*"
@@ -518,8 +526,40 @@ const UserManager = () => {
                       onChange={handleInputChange}
                       className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="VD: nguyenvana"
+                      // Có thể disable khi edit nếu muốn
+                      // disabled={!!editingId}
                     />
                   </div>
+
+                  {/* --- THÊM INPUT PASSWORD --- */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mật khẩu{" "}
+                      {editingId ? (
+                        "(Để trống nếu không đổi)"
+                      ) : (
+                        <span className="text-red-500">*</span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <Lock
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                      <input
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-lg pl-9 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder={
+                          editingId ? "********" : "Nhập mật khẩu..."
+                        }
+                        required={!editingId} // Bắt buộc khi tạo mới
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Họ và tên
@@ -598,7 +638,6 @@ const UserManager = () => {
                     />
                   </div>
 
-                  {/* Địa chỉ full width */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Địa chỉ

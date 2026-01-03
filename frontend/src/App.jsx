@@ -11,6 +11,7 @@ import CategoryPage from "./pages/CategoryPage";
 import MyOrders from "./pages/MyOrder";
 import OrderDetail from "./pages/OrderDetail";
 import SearchPage from "./pages/SearchPage";
+import Checkout from "./pages/Checkout";
 
 //admin
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -20,6 +21,7 @@ import ProductManager from "./pages/admin/ProductManager";
 import UserManager from "./pages/admin/UserManager";
 import CategoryManager from "./pages/admin/CategoryManager";
 import OrderManager from "./pages/admin/OrderManager";
+import ReviewManager from "./pages/admin/ReviewManager";
 
 // --- LAYOUT COMPONENT ---
 // Layout này giúp Navbar và Footer luôn hiển thị, chỉ có phần giữa (Outlet) thay đổi
@@ -53,6 +55,7 @@ function App() {
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
         <Route path="cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="product/:id" element={<ProductDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/category/:id" element={<CategoryPage />} />
@@ -81,6 +84,7 @@ function App() {
           <Route path="users" element={<UserManager />} />
           <Route path="categories" element={<CategoryManager />} />
           <Route path="orders" element={<OrderManager />} />
+          <Route path="reviews" element={<ReviewManager />} />
           {/* Thêm các route khác: orders, users... */}
         </Route>
       </Route>
