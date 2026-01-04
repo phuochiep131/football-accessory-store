@@ -24,7 +24,7 @@ const login = async (req, res) => {
       maxAge: 3600 * 1000, // 1 giờ
     });
 
-    res.json({ message: "Đăng nhập thành công!", user });
+    res.json({ message: "Đăng nhập thành công!", user, token });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -66,9 +66,34 @@ const getMe = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        
+        const userId = req.user._id;
+
+        await authService.changePassword(userId, currentPassword, newPassword);
+
+        return res.status(200).json({ message: "Đổi mật khẩu thành công!" });
+
+    } catch (error) {
+        console.error("Change Password Error:", error.message);
+
+        if (error.message === "USER_NOT_FOUND") {
+            return res.status(404).json({ error: "Người dùng không tồn tại." });
+        }
+        if (error.message === "PASSWORD_MISMATCH") {
+            return res.status(400).json({ error: "Mật khẩu hiện tại không chính xác." });
+        }
+
+        return res.status(500).json({ error: "Lỗi hệ thống, vui lòng thử lại sau." });
+    }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getMe,
+  changePassword,
 };

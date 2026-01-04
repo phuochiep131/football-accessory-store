@@ -13,6 +13,7 @@ import OrderDetail from "./pages/OrderDetail";
 import SearchPage from "./pages/SearchPage";
 import Checkout from "./pages/Checkout";
 import VnpayReturn from "./pages/VnpayReturn";
+import ChangePassword from "./pages/ChangePassword";
 
 //admin
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -47,13 +48,15 @@ const MainLayout = () => {
 function App() {
   return (
     <Routes>
+      <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
       {/* Route cha sử dụng MainLayout */}
       <Route path="/" element={<MainLayout />}>
         {/* Route Index: Trang chủ (hiển thị khi vào đường dẫn /) */}
         <Route index element={<Home />} />
         {/* Các Route con */}
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
+        
+        
         <Route path="cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="product/:id" element={<ProductDetail />} />
@@ -63,7 +66,7 @@ function App() {
         <Route path="/order/vnpay_return" element={<VnpayReturn />} />
         <Route path="/order/:id" element={<OrderDetail />} />
         <Route path="/search" element={<SearchPage />} />      
-        
+        <Route path="/change-password" element={<ChangePassword />} />
         <Route
           path="*"
           element={

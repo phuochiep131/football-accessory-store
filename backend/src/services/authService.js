@@ -47,7 +47,29 @@ async function loginUser(username, password) {
 
 	return { user: userInfo, token };
 }
+
+const changePassword = async (userId, currentPassword, newPassword) => {
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new Error("USER_NOT_FOUND");
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+        throw new Error("PASSWORD_MISMATCH");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return true;
+};
+
 module.exports = {
 	registerUser,
 	loginUser,
+	changePassword,
 };
