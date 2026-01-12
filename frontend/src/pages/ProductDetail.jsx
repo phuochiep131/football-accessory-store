@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
@@ -10,11 +10,14 @@ import {
   Truck,
   ShieldCheck,
   RotateCcw,
-  Ruler,
   MessageSquare,
   Clock,
   User,
   ChevronRight,
+  AlertCircle,
+  Minus,
+  Plus,
+  Loader2
 } from "lucide-react";
 
 const API_URL = "http://localhost:5000/api";
@@ -29,7 +32,8 @@ const ProductDetail = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State giỏ hàng
+  // State tương tác
+  const [selectedSize, setSelectedSize] = useState(null); // Lưu size đang chọn (String)
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState("");
   const [adding, setAdding] = useState(false);
@@ -41,12 +45,11 @@ const ProductDetail = () => {
       currency: "VND",
     }).format(amount);
 
-  // --- 1. FETCH DATA (PRODUCT & REVIEWS) ---
+  // --- 1. FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Gọi song song 2 API: Lấy chi tiết sản phẩm & Lấy danh sách review
         const [productRes, reviewRes] = await Promise.all([
           axios.get(`${API_URL}/products/${id}`),
           axios.get(`${API_URL}/reviews/product/${id}`),
@@ -58,6 +61,13 @@ const ProductDetail = () => {
           data.image_url || "https://placehold.co/600x600/png?text=No+Image"
         );
         setReviews(reviewRes.data);
+        
+        // Tự động chọn size đầu tiên còn hàng (nếu có)
+        if (data.sizes && data.sizes.length > 0) {
+            const firstAvailable = data.sizes.find(s => s.quantity > 0);
+            if (firstAvailable) setSelectedSize(firstAvailable.size);
+        }
+
       } catch (err) {
         console.error("Lỗi tải dữ liệu:", err);
         toast.error("Không thể tải thông tin sản phẩm");
@@ -73,7 +83,52 @@ const ProductDetail = () => {
     }
   }, [id]);
 
-  // --- 2. ADD TO CART ---
+  // --- 2. LOGIC TÍNH TOÁN ---
+  
+  // Lấy thông tin của size đang chọn
+  const currentSizeInfo = useMemo(() => {
+      if (!product || !selectedSize) return null;
+      return product.sizes.find(s => s.size === selectedSize);
+  }, [product, selectedSize]);
+
+  // Tính tổng tồn kho (để hiển thị khi chưa chọn size)
+  const totalStock = useMemo(() => {
+      if (!product || !product.sizes) return 0;
+      return product.sizes.reduce((acc, item) => acc + item.quantity, 0);
+  }, [product]);
+
+  // Số lượng tồn kho thực tế để hiển thị và validate
+  const currentStock = currentSizeInfo ? currentSizeInfo.quantity : totalStock;
+  const isOutOfStock = currentStock === 0;
+
+  // --- LOGIC HIỂN THỊ GIÁ ---
+  const displayPrice = useMemo(() => {
+      if (!product) return 0;
+      
+      // Nếu đã chọn size, lấy giá của size đó
+      if (currentSizeInfo && currentSizeInfo.price) {
+          return currentSizeInfo.price;
+      }
+      
+      // Nếu chưa chọn size, lấy giá mặc định của sản phẩm (thường là giá thấp nhất)
+      return product.price;
+  }, [product, currentSizeInfo]);
+
+  const discount = product?.discount || 0;
+  const finalPrice = displayPrice * (1 - discount / 100);
+
+
+  // --- 3. HANDLERS ---
+  
+  const handleQuantityChange = (type) => {
+      if (type === 'decrease') {
+          if (quantity > 1) setQuantity(quantity - 1);
+      } else {
+          if (quantity < currentStock) setQuantity(quantity + 1);
+          else toast.warning(`Chỉ còn ${currentStock} sản phẩm trong kho!`);
+      }
+  };
+
   const handleAddToCart = async () => {
     if (!state.currentUser) {
       toast.error("Vui lòng đăng nhập để mua hàng!");
@@ -81,14 +136,24 @@ const ProductDetail = () => {
       return;
     }
 
+    // Validate chọn size
+    if (!selectedSize && product.sizes.length > 0) {
+        toast.error("Vui lòng chọn Size!");
+        return;
+    }
+
     try {
       setAdding(true);
       await axios.post(
         `${API_URL}/cart/add`,
-        { productId: id, quantity: quantity },
+        { 
+            productId: id, 
+            quantity: quantity,
+            size: selectedSize // Gửi kèm size lên server
+        },
         { withCredentials: true }
       );
-      toast.success("Đã thêm vào giỏ hàng!");
+      toast.success(`Đã thêm Size ${selectedSize} vào giỏ!`);
       fetchCartCount();
     } catch (error) {
       toast.error(error.response?.data?.message || "Lỗi khi thêm vào giỏ");
@@ -97,38 +162,22 @@ const ProductDetail = () => {
     }
   };
 
-  // --- LOADING / ERROR STATE ---
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">
-        Đang tải dữ liệu...
-      </div>
-    );
-  if (!product)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Không tìm thấy sản phẩm
-      </div>
-    );
+  // --- LOADING / ERROR ---
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500"><Loader2 className="animate-spin mr-2"/> Đang tải dữ liệu...</div>;
+  if (!product) return <div className="min-h-screen flex items-center justify-center">Không tìm thấy sản phẩm</div>;
 
-  const currentPrice = product.price * (1 - (product.discount || 0) / 100);
-
-  // Specs List giả lập hoặc lấy từ DB
+  // Specs List (Loại bỏ dòng Size cũ vì đã có bộ chọn riêng)
   const specsList = [
-    { label: "Loại giày/Áo", value: product.category_id?.name },
-    { label: "Size", value: product.size },
+    { label: "Danh mục", value: product.category_id?.name },
     { label: "Màu sắc", value: product.color },
     { label: "Chất liệu", value: product.material },
     { label: "Xuất xứ", value: product.origin },
     { label: "Bảo hành", value: product.warranty },
   ].filter((item) => item.value);
 
-  // Tính điểm đánh giá trung bình
-  const averageRating =
-    reviews.length > 0
-      ? (
-          reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        ).toFixed(1)
+  // Rating
+  const averageRating = reviews.length > 0
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : 0;
 
   return (
@@ -138,18 +187,15 @@ const ProductDetail = () => {
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
         <div className="text-sm text-gray-500 mb-6 flex items-center gap-2">
-          <Link to="/" className="hover:text-green-600">
-            Trang chủ
-          </Link>{" "}
+          <Link to="/" className="hover:text-green-600">Trang chủ</Link> 
           <ChevronRight size={14} />
-          <span className="text-gray-900 font-bold">
-            {product.product_name}
-          </span>
+          <span className="text-gray-900 font-bold">{product.product_name}</span>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-            {/* --- PRODUCT IMAGES --- */}
+            
+            {/* --- LEFT: IMAGES --- */}
             <div className="space-y-4">
               <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden relative border border-gray-100 flex items-center justify-center group">
                 {product.discount > 0 && (
@@ -160,12 +206,17 @@ const ProductDetail = () => {
                 <img
                   src={mainImage}
                   alt="Main"
-                  className="w-full h-full object-contain mix-blend-multiply p-6 transition-transform duration-500 group-hover:scale-110"
+                  className={`w-full h-full object-contain mix-blend-multiply p-6 transition-transform duration-500 group-hover:scale-110 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
                 />
+                {isOutOfStock && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="bg-gray-900 text-white px-6 py-2 rounded-full font-bold uppercase shadow-lg transform -rotate-12 border-2 border-white">Hết hàng</span>
+                    </div>
+                )}
               </div>
             </div>
 
-            {/* --- PRODUCT INFO --- */}
+            {/* --- RIGHT: INFO --- */}
             <div>
               <h1 className="text-3xl font-black text-gray-900 mb-2 uppercase italic leading-tight">
                 {product.product_name}
@@ -173,28 +224,32 @@ const ProductDetail = () => {
 
               <div className="flex items-center gap-4 text-sm mb-4">
                 <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-100">
-                  <span className="font-bold text-yellow-700">
-                    {averageRating || 5}
-                  </span>
+                  <span className="font-bold text-yellow-700">{averageRating || 5}</span>
                   <Star size={16} className="text-yellow-400 fill-current" />
                 </div>
                 <span className="text-gray-300">|</span>
                 <span className="text-gray-500">{reviews.length} đánh giá</span>
                 <span className="text-gray-300">|</span>
-                <span className="text-green-600 font-bold flex items-center gap-1">
-                  <CheckCircle size={14} />{" "}
-                  {product.quantity > 0 ? "Còn hàng" : "Hết hàng"}
+                
+                {/* Dynamic Stock Status */}
+                <span className={`font-bold flex items-center gap-1 ${isOutOfStock ? 'text-red-500' : 'text-green-600'}`}>
+                  {isOutOfStock ? (
+                      <><AlertCircle size={14} /> Hết hàng</>
+                  ) : (
+                      <><CheckCircle size={14} /> Còn {currentStock} sản phẩm</>
+                  )}
                 </span>
               </div>
 
+              {/* Price Area */}
               <div className="bg-gray-50 p-5 rounded-2xl mb-6 flex items-center gap-4 border border-gray-100">
                 <span className="text-4xl font-black text-red-600 tracking-tight">
-                  {formatCurrency(currentPrice)}
+                  {formatCurrency(finalPrice)}
                 </span>
                 {product.discount > 0 && (
                   <div className="flex flex-col">
                     <span className="text-gray-400 line-through text-sm font-medium">
-                      {formatCurrency(product.price)}
+                      {formatCurrency(displayPrice)}
                     </span>
                     <span className="text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full w-fit mt-1">
                       Tiết kiệm {product.discount}%
@@ -203,53 +258,118 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              {/* Policies */}
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
-                  <div className="p-2 bg-green-50 text-green-600 rounded-full">
-                    <CheckCircle size={18} />
-                  </div>
-                  <span className="font-medium">Chính hãng 100%</span>
+              {/* --- SIZE SELECTOR (NEW) --- */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="font-bold text-gray-800 text-sm uppercase">Chọn Size:</span>
+                    {selectedSize && <span className="text-sm font-bold text-green-600">Size {selectedSize}</span>}
                 </div>
-                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-full">
-                    <RotateCcw size={18} />
-                  </div>
-                  <span className="font-medium">Đổi trả 7 ngày</span>
+                
+                <div className="flex flex-wrap gap-3">
+                    {product.sizes?.map((item) => (
+                        <button
+                            key={item.size}
+                            onClick={() => {
+                                setSelectedSize(item.size);
+                                setQuantity(1); // Reset số lượng khi đổi size
+                            }}
+                            disabled={item.quantity === 0}
+                            className={`
+                                min-w-[3rem] h-10 px-3 rounded-lg border font-bold text-sm transition-all relative
+                                ${selectedSize === item.size 
+                                    ? 'border-gray-900 bg-gray-900 text-white shadow-md transform -translate-y-1' 
+                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:text-gray-900'
+                                }
+                                ${item.quantity === 0 ? 'opacity-40 cursor-not-allowed bg-gray-100' : 'cursor-pointer'}
+                            `}
+                        >
+                            {item.size}
+                            {/* Gạch chéo nếu hết hàng */}
+                            {item.quantity === 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-full h-[1px] bg-gray-400 rotate-45"></div>
+                                </div>
+                            )}
+                        </button>
+                    ))}
                 </div>
-                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
-                  <div className="p-2 bg-orange-50 text-orange-600 rounded-full">
-                    <Truck size={18} />
-                  </div>
-                  <span className="font-medium">Freeship đơn 500k</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
-                  <div className="p-2 bg-purple-50 text-purple-600 rounded-full">
-                    <ShieldCheck size={18} />
-                  </div>
-                  <span className="font-medium">Bảo hành trọn đời</span>
+                {!selectedSize && (
+                     <p className="text-gray-500 text-xs mt-2 italic">* Vui lòng chọn size để xem giá chính xác</p>
+                )}
+              </div>
+
+              {/* --- QUANTITY SELECTOR --- */}
+              <div className="mb-8">
+                <span className="font-bold text-gray-800 text-sm uppercase mb-2 block">Số lượng:</span>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center border border-gray-300 rounded-lg bg-white overflow-hidden">
+                        <button 
+                            onClick={() => handleQuantityChange('decrease')}
+                            disabled={quantity <= 1 || isOutOfStock}
+                            className="p-3 hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                        >
+                            <Minus size={16} />
+                        </button>
+                        <span className="w-12 text-center font-bold text-gray-900">{quantity}</span>
+                        <button 
+                            onClick={() => handleQuantityChange('increase')}
+                            disabled={quantity >= currentStock || isOutOfStock}
+                            className="p-3 hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                        >
+                            <Plus size={16} />
+                        </button>
+                    </div>
+                    {selectedSize && currentStock < 10 && currentStock > 0 && (
+                        <span className="text-orange-500 text-xs font-medium italic">
+                            Chỉ còn {currentStock} sản phẩm!
+                        </span>
+                    )}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 mt-8">
+              {/* --- ACTIONS --- */}
+              <div className="flex gap-3">
                 <button
                   onClick={handleAddToCart}
-                  disabled={adding || product.quantity <= 0}
-                  className="flex-1 bg-white border-2 border-gray-900 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-50 uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={adding || isOutOfStock || !selectedSize}
+                  className="flex-1 bg-white border-2 border-gray-900 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-50 uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
                 >
                   {adding ? "Đang xử lý..." : "Thêm vào giỏ"}
                 </button>
                 <button
                   onClick={async () => {
-                    await handleAddToCart();
-                    navigate("/cart");
+                      if (!selectedSize) {
+                          toast.error("Vui lòng chọn Size!");
+                          return;
+                      }
+                      await handleAddToCart();
+                      if(!adding) navigate("/cart");
                   }}
-                  disabled={adding || product.quantity <= 0}
-                  className="flex-1 bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black uppercase shadow-xl shadow-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-1"
+                  disabled={adding || isOutOfStock || !selectedSize}
+                  className="flex-1 bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black uppercase shadow-xl shadow-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 hover:-translate-y-1"
                 >
                   Mua ngay
                 </button>
+              </div>
+
+               {/* Policies */}
+               <div className="grid grid-cols-2 gap-3 mt-8">
+                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
+                  <div className="p-2 bg-green-50 text-green-600 rounded-full"><CheckCircle size={18} /></div>
+                  <span className="font-medium">Chính hãng 100%</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-full"><RotateCcw size={18} /></div>
+                  <span className="font-medium">Đổi trả 7 ngày</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-full"><Truck size={18} /></div>
+                  <span className="font-medium">Freeship đơn 500k</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm p-3 bg-white rounded-xl text-gray-700 border border-gray-100 shadow-sm">
+                  <div className="p-2 bg-purple-50 text-purple-600 rounded-full"><ShieldCheck size={18} /></div>
+                  <span className="font-medium">Bảo hành trọn đời</span>
+                </div>
               </div>
             </div>
           </div>
@@ -264,22 +384,13 @@ const ProductDetail = () => {
                 {product.description || "Đang cập nhật mô tả..."}
               </div>
               <div className="bg-white p-6 rounded-2xl border border-gray-100 h-fit shadow-sm">
-                <h4 className="font-bold mb-4 text-gray-800 border-b pb-2">
-                  Thông số kỹ thuật
-                </h4>
+                <h4 className="font-bold mb-4 text-gray-800 border-b pb-2">Thông số kỹ thuật</h4>
                 <table className="w-full text-sm text-left text-gray-600">
                   <tbody>
                     {specsList.map((spec, index) => (
-                      <tr
-                        key={index}
-                        className="border-b border-gray-100 last:border-0"
-                      >
-                        <td className="py-3 font-medium text-gray-500 w-1/3 align-top">
-                          {spec.label}
-                        </td>
-                        <td className="py-3 pl-2 font-semibold text-gray-800 align-top">
-                          {spec.value}
-                        </td>
+                      <tr key={index} className="border-b border-gray-100 last:border-0">
+                        <td className="py-3 font-medium text-gray-500 w-1/3 align-top">{spec.label}</td>
+                        <td className="py-3 pl-2 font-semibold text-gray-800 align-top">{spec.value}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -289,9 +400,9 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* --- REVIEW SECTION (READ ONLY) --- */}
+        {/* --- REVIEW SECTION --- */}
         <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 border border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
             <div>
               <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                 <MessageSquare className="text-blue-600" />

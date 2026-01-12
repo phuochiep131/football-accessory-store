@@ -12,7 +12,7 @@ export const CartProvider = ({ children }) => {
   // URL API gốc
   const API_URL = "http://localhost:5000/api";
 
-  // 1. Hàm lấy số lượng (Giữ nguyên)
+  // 1. Hàm lấy số lượng
   const fetchCartCount = async () => {
     if (!currentUser) {
       setCartCount(0);
@@ -32,17 +32,27 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 2. THÊM HÀM: Thêm vào giỏ hàng
-  const addToCart = async (productId, quantity = 1) => {
+  // 2. THÊM HÀM: Thêm vào giỏ hàng (Cập nhật nhận thêm Size)
+  const addToCart = async (productId, quantity = 1, size) => {
     if (!currentUser) {
       alert("Vui lòng đăng nhập để mua hàng!");
       return false;
     }
 
+    // Nếu sản phẩm yêu cầu size mà không có size (đề phòng)
+    if (!size) {
+        alert("Vui lòng chọn size sản phẩm");
+        return false;
+    }
+
     try {
       await axios.post(
         `${API_URL}/cart/add`,
-        { productId, quantity },
+        { 
+            productId, 
+            quantity,
+            size // Gửi thông tin size lên backend
+        },
         { withCredentials: true }
       );
 
@@ -51,7 +61,8 @@ export const CartProvider = ({ children }) => {
       return true; // Trả về true để báo UI hiển thị dấu tích xanh
     } catch (error) {
       console.error("Lỗi thêm vào giỏ hàng:", error);
-      alert("Có lỗi xảy ra khi thêm vào giỏ hàng.");
+      // Hiển thị lỗi từ backend (ví dụ: hết hàng)
+      alert(error.response?.data?.error || "Có lỗi xảy ra khi thêm vào giỏ hàng.");
       return false;
     }
   };
@@ -61,7 +72,6 @@ export const CartProvider = ({ children }) => {
   }, [currentUser]);
 
   return (
-    // Export cả addToCart ra ngoài để các component khác dùng
     <CartContext.Provider value={{ cartCount, fetchCartCount, addToCart }}>
       {children}
     </CartContext.Provider>

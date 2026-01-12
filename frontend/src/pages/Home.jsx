@@ -124,13 +124,10 @@ const Home = () => {
   return (
     <div className="bg-gray-50 min-h-screen pb-20 font-sans">
       {/* --- 1. HERO SECTION (BANNER) --- */}
-      {/* Quan trọng: h-auto để grid tự giãn theo nội dung, tránh bị đè */}
       <section className="container mx-auto px-4 py-6 mb-12">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-auto">
           {/* CỘT TRÁI (8 phần) */}
           <div className="md:col-span-8 flex flex-col gap-6">
-            {/* Banner Chính (Trái - Trên) */}
-            {/* Desktop cao 340px */}
             <div className="relative rounded-3xl overflow-hidden shadow-md group cursor-pointer h-[280px] md:h-[340px] w-full">
               <img
                 src={MainBanner}
@@ -156,7 +153,7 @@ const Home = () => {
               </div>
             </div>
 
-            <div className="relative rounded-3xl overflow-hidden shadow-md group cursor-pointer h-[520px] md:h-[540px] w-full">
+            <div className="relative rounded-3xl overflow-hidden shadow-md group cursor-pointer h-[500px] md:h-[540px] w-full hidden md:block">
               <img
                 src={BottomBanner}
                 alt="Sub Banner Left Bottom"
@@ -181,10 +178,8 @@ const Home = () => {
           </div>
 
           {/* CỘT PHẢI (4 phần) */}
-          <div className="md:col-span-4 flex flex-col gap-6">
-            {/* Banner Phải 1 */}
-            {/* Desktop cao 260px */}
-            <div className="flex-1 rounded-3xl overflow-hidden shadow-md relative cursor-pointer group h-[180px] md:h-[260px] w-full">
+          <div className="md:col-span-4 flex flex-col gap-6 h-full">
+            <div className="flex-1 rounded-3xl overflow-hidden shadow-md relative cursor-pointer group min-h-[200px] md:h-auto">
               <img
                 src={TopBanner}
                 alt="Right Top"
@@ -201,11 +196,9 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Banner Phải 2 */}
-            {/* Desktop cao 260px -> Tổng cột phải = 260 + 260 + 24(gap) = 544px (Khớp với cột trái) */}
-            <div className="flex-1 rounded-3xl overflow-hidden shadow-md relative cursor-pointer group h-[180px] md:h-[260px] w-full">
+            <div className="flex-1 rounded-3xl overflow-hidden shadow-md relative cursor-pointer group min-h-[200px] md:h-auto">
               <img
-                src={BottomBanner}
+                src={BottomBanner} // Reuse or replace with another image
                 alt="Right Bottom"
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
               />
@@ -224,7 +217,6 @@ const Home = () => {
       </section>
 
       {/* --- 2. DANH MỤC SẢN PHẨM --- */}
-      {/* relative z-10 để đảm bảo hiển thị đúng layer */}
       <section className="container mx-auto px-4 mt-8 mb-16 relative z-10">
         <div className="flex items-center gap-4 mb-8">
           <div className="w-1.5 h-10 bg-green-600 rounded-full"></div>
@@ -265,25 +257,9 @@ const Home = () => {
               Những sản phẩm được các cầu thủ tin dùng nhất tuần qua
             </p>
           </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-            {["Tất cả", "Giày cỏ nhân tạo", "Áo đấu", "Găng tay"].map(
-              (tab, idx) => (
-                <button
-                  key={idx}
-                  className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${
-                    idx === 0
-                      ? "bg-black text-white border-black shadow-lg"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-900"
-                  }`}
-                >
-                  {tab}
-                </button>
-              )
-            )}
-          </div>
         </div>
 
+        {/* Product Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
           {products.slice(0, visibleCount).map((product) => (
             <ProductCard key={product._id} product={product} />

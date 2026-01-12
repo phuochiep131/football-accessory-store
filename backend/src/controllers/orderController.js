@@ -24,10 +24,8 @@ function sortObject(obj) {
 
 const create = async (req, res) => {
   try {
-    // 1. Tạo Order
     const order = await orderService.createOrder(req.user.id, req.body);
 
-    // 2. Xử lý VNPAY
     if (req.body.payment_method === "VNPAY") {
       let date = new Date();
       let createDate = moment(date).format("YYYYMMDDHHmmss");
@@ -173,11 +171,10 @@ const getMyOrders = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    // Chỉ cần find và populate đúng, dữ liệu sẽ lên
     const orders = await Order.find()
       .populate("user_id", "fullname email phone_number")
-      .populate("payment_id") // Payment Model phải đúng Schema
-      .sort({ createdAt: -1 }); // Order Schema phải có timestamps: true
+      .populate("payment_id")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(orders);
   } catch (error) {

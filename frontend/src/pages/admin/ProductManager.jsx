@@ -14,59 +14,45 @@ import {
   Loader2,
   RefreshCcw,
   UploadCloud,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 
-// --- CONFIG ---
 const API_BASE = "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
 
 const ProductManager = () => {
-  // --- STATE ---
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // --- UI STATE ---
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- IMAGE STATE ---
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const fileInputRef = useRef(null);
 
-  // --- FORM STATE (Không được để null/undefined) ---
   const initialFormState = {
     product_name: "",
-    price: 0,
-    quantity: 0,
+    price: 0, // This can be treated as a base price or display price
     discount: 0,
     category_id: "",
-    image_url: "", // Default empty string
+    image_url: "",
     description: "",
-    size: "",
     color: "",
     material: "",
     warranty: "",
     origin: "",
+    sizes: [{ size: "", quantity: 0, price: 0 }], // Added price to initial size state
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // ========================================================================
-  // 1. FETCH DATA
-  // ========================================================================
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Gọi song song để nhanh hơn
-      // Lưu ý: API products/categories public thì không cần credentials,
-      // nhưng nếu admin mới xem được thì cần thêm. Ở đây tôi thêm luôn cho chắc.
       const [productsRes, categoriesRes] = await Promise.all([
         axios.get(`${API_BASE}/products`),
         axios.get(`${API_BASE}/categories`),
@@ -76,8 +62,7 @@ const ProductManager = () => {
       setCategories(
         Array.isArray(categoriesRes.data) ? categoriesRes.data : []
       );
-    } catch (error) {
-      console.error("Lỗi tải dữ liệu:", error);
+    } catch {
       toast.error("Không thể kết nối đến Server!");
     } finally {
       setLoading(false);
@@ -88,9 +73,6 @@ const ProductManager = () => {
     fetchData();
   }, []);
 
-  // ========================================================================
-  // 2. UPLOAD HANDLERS
-  // ========================================================================
   const handleImageFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -121,18 +103,45 @@ const ProductManager = () => {
         formData
       );
       return res.data.secure_url;
-    } catch (error) {
-      console.error("Lỗi upload ảnh:", error);
+    } catch {
       throw new Error("Lỗi khi upload ảnh lên Cloudinary.");
     }
   };
 
-  // ========================================================================
-  // 3. CRUD HANDLERS
-  // ========================================================================
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSizeChange = (index, field, value) => {
+    const newSizes = [...formData.sizes];
+    // Ensure deep copy and handle number fields correctly
+    newSizes[index] = {
+      ...newSizes[index],
+      [field]:
+        field === "quantity" || field === "price" ? Number(value) : value,
+    };
+    setFormData((prev) => ({ ...prev, sizes: newSizes }));
+  };
+
+  const addSizeRow = () => {
+    // Default price for new size could be the base price or 0
+    setFormData((prev) => ({
+      ...prev,
+      sizes: [
+        ...prev.sizes,
+        { size: "", quantity: 0, price: Number(prev.price) || 0 },
+      ],
+    }));
+  };
+
+  const removeSizeRow = (index) => {
+    if (formData.sizes.length === 1) {
+      toast.warning("Phải có ít nhất một size!");
+      return;
+    }
+    const newSizes = formData.sizes.filter((_, i) => i !== index);
+    setFormData((prev) => ({ ...prev, sizes: newSizes }));
   };
 
   const openAddModal = () => {
@@ -147,7 +156,6 @@ const ProductManager = () => {
     setEditingId(product._id);
     setSelectedImageFile(null);
 
-    // Xử lý category_id (phòng trường hợp populate object)
     let safeCategoryId = "";
     if (product.category_id) {
       safeCategoryId =
@@ -159,43 +167,48 @@ const ProductManager = () => {
     setFormData({
       product_name: product.product_name || "",
       price: product.price || 0,
-      quantity: product.quantity || 0,
       discount: product.discount || 0,
       category_id: safeCategoryId,
       image_url: product.image_url || "",
       description: product.description || "",
-      size: product.size || "",
       color: product.color || "",
       material: product.material || "",
       warranty: product.warranty || "",
       origin: product.origin || "",
+      sizes:
+        product.sizes && product.sizes.length > 0
+          ? product.sizes
+          : [{ size: "", quantity: 0, price: product.price || 0 }],
     });
 
     setImagePreview(product.image_url || "");
     setIsModalOpen(true);
   };
 
-  // --- SUBMIT ---
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     const toastId = toast.loading("Đang xử lý dữ liệu...");
 
+    if (formData.sizes.length === 0) {
+      toast.dismiss(toastId);
+      toast.error("Vui lòng thêm ít nhất một size!");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       let finalImageUrl = formData.image_url;
 
-      // 1. Upload ảnh nếu có file mới
       if (selectedImageFile) {
         finalImageUrl = await uploadToCloudinary(selectedImageFile);
       }
 
-      // 2. Payload
       const payload = {
         ...formData,
         image_url: finalImageUrl,
       };
 
-      // 3. Call API (Có credentials)
       if (editingId) {
         await axios.put(`${API_BASE}/products/${editingId}`, payload, {
           withCredentials: true,
@@ -209,23 +222,16 @@ const ProductManager = () => {
       }
 
       setIsModalOpen(false);
-      fetchData(); // Reload list
+      fetchData();
     } catch (error) {
-      if (error.response && error.response.status === 401) {
-        toast.error("Hết phiên đăng nhập hoặc không đủ quyền!", {
-          id: toastId,
-        });
-      } else {
-        const msg =
-          error.response?.data?.message || error.message || "Lỗi xảy ra!";
-        toast.error("Lỗi: " + msg, { id: toastId });
-      }
+      const msg =
+        error.response?.data?.message || error.message || "Lỗi xảy ra!";
+      toast.error("Lỗi: " + msg, { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- DELETE ---
   const handleDelete = async (id) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa sản phẩm này?")) return;
 
@@ -242,9 +248,6 @@ const ProductManager = () => {
     }
   };
 
-  // ========================================================================
-  // 4. RENDER
-  // ========================================================================
   const getCategoryName = (catData) => {
     if (!catData) return "---";
     if (typeof catData === "object" && catData.name) return catData.name;
@@ -257,6 +260,11 @@ const ProductManager = () => {
       style: "currency",
       currency: "VND",
     }).format(amount);
+  };
+
+  const calculateTotalStock = (sizes) => {
+    if (!sizes || !Array.isArray(sizes)) return 0;
+    return sizes.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
   };
 
   const filteredProducts = products.filter((p) => {
@@ -278,7 +286,6 @@ const ProductManager = () => {
     <div className="min-h-screen pb-10 relative">
       <Toaster position="top-right" richColors closeButton />
 
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -298,7 +305,6 @@ const ProductManager = () => {
         </button>
       </div>
 
-      {/* FILTER BAR */}
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex flex-col md:flex-row gap-4 border border-gray-100">
         <div className="relative flex-1">
           <Search
@@ -337,7 +343,6 @@ const ProductManager = () => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 overflow-x-auto min-h-[300px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -351,104 +356,111 @@ const ProductManager = () => {
                 <th className="py-4 px-6 w-24">Ảnh</th>
                 <th className="py-4 px-6">Tên sản phẩm</th>
                 <th className="py-4 px-6">Danh mục</th>
-                <th className="py-4 px-6">Giá & Kho</th>
-                <th className="py-4 px-6">Chi tiết</th>
+                <th className="py-4 px-6">Giá hiển thị & Kho</th>
+                <th className="py-4 px-6">Chi tiết Size</th>
                 <th className="py-4 px-6 text-center">Hành động</th>
               </tr>
             </thead>
             <tbody className="text-gray-600 text-sm">
               {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => (
-                  <tr
-                    key={product._id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors group"
-                  >
-                    <td className="py-4 px-6">
-                      <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.product_name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "";
-                            }}
-                          />
-                        ) : (
-                          <ImageIcon size={24} className="text-gray-400" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="font-semibold text-gray-800 text-base mb-1">
-                        {product.product_name}
-                      </div>
-                      <div className="text-xs text-gray-500 line-clamp-2 max-w-[250px]">
-                        {product.description || "Chưa có mô tả"}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 whitespace-nowrap">
-                        {getCategoryName(product.category_id)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold text-gray-800">
-                          {formatCurrency(product.price)}
-                        </span>
-                        <div className="mt-1">
-                          {product.quantity > 0 ? (
-                            <span className="text-xs text-green-600 font-medium">
-                              Sẵn: {product.quantity}
-                            </span>
+                filteredProducts.map((product) => {
+                  const totalStock = calculateTotalStock(product.sizes);
+                  return (
+                    <tr
+                      key={product._id}
+                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors group"
+                    >
+                      <td className="py-4 px-6">
+                        <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.product_name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "";
+                              }}
+                            />
                           ) : (
-                            <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded">
-                              Hết hàng
-                            </span>
+                            <ImageIcon size={24} className="text-gray-400" />
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="text-xs space-y-1 text-gray-500">
-                        {product.origin && (
-                          <div>
-                            <span className="font-medium text-gray-700">
-                              Xuất xứ:
-                            </span>{" "}
-                            {product.origin}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="font-semibold text-gray-800 text-base mb-1">
+                          {product.product_name}
+                        </div>
+                        <div className="text-xs text-gray-500 line-clamp-2 max-w-[250px]">
+                          {product.description || "Chưa có mô tả"}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 whitespace-nowrap">
+                          {getCategoryName(product.category_id)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-bold text-gray-800">
+                            {formatCurrency(product.price)}
+                          </span>
+                          <div className="mt-1">
+                            {totalStock > 0 ? (
+                              <span className="text-xs text-green-600 font-medium">
+                                Tổng sẵn: {totalStock}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded">
+                                Hết hàng
+                              </span>
+                            )}
                           </div>
-                        )}
-                        {(product.size || product.color) && (
-                          <div>
-                            <span className="font-medium text-gray-700">
-                              Loại:
-                            </span>{" "}
-                            {product.size} - {product.color}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openEditModal(product)}
-                          className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-all shadow-sm"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product._id)}
-                          className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 transition-all shadow-sm"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col gap-1 max-w-[250px]">
+                          {product.sizes && product.sizes.length > 0 ? (
+                            product.sizes.map((s, idx) => (
+                              <div
+                                key={idx}
+                                className="flex justify-between items-center text-[11px] bg-gray-50 px-2 py-1 rounded border border-gray-100"
+                              >
+                                <span className="font-bold text-gray-700">
+                                  {s.size}
+                                </span>
+                                <span className="text-gray-500">
+                                  SL: {s.quantity}
+                                </span>
+                                <span className="text-blue-600 font-medium">
+                                  {formatCurrency(s.price || product.price)}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">---</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditModal(product)}
+                            className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-all shadow-sm"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product._id)}
+                            className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 transition-all shadow-sm"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center py-12 text-gray-500">
@@ -461,11 +473,9 @@ const ProductManager = () => {
         )}
       </div>
 
-      {/* --- MODAL (FORM) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-bold text-gray-800">
                 {editingId ? "Cập nhật sản phẩm" : "Thêm sản phẩm mới"}
@@ -478,10 +488,8 @@ const ProductManager = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
             <form onSubmit={handleSave} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* CỘT TRÁI */}
                 <div className="space-y-4">
                   <h4 className="font-semibold text-gray-700 border-b pb-2">
                     Thông tin cơ bản
@@ -502,7 +510,8 @@ const ProductManager = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Giá (VNĐ) <span className="text-red-500">*</span>
+                        Giá hiển thị (VNĐ){" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <input
                         required
@@ -548,29 +557,86 @@ const ProductManager = () => {
                       ))}
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Số lượng kho <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="number"
-                      name="quantity"
-                      value={formData.quantity}
-                      onChange={handleInputChange}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                      min="0"
-                    />
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Quản lý Size, Số lượng & Giá{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addSizeRow}
+                        className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 font-semibold"
+                      >
+                        <Plus size={14} /> Thêm Size
+                      </button>
+                    </div>
+
+                    {/* Header for Size Rows */}
+                    <div className="flex gap-2 text-xs font-semibold text-gray-500 mb-1 px-1">
+                      <span className="flex-1">Size</span>
+                      <span className="w-20">Số lượng</span>
+                      <span className="w-28">Giá riêng (VNĐ)</span>
+                      <span className="w-6"></span>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2 max-h-[250px] overflow-y-auto">
+                      {formData.sizes.map((item, index) => (
+                        <div key={index} className="flex gap-2 items-center">
+                          <input
+                            required
+                            placeholder="Size"
+                            value={item.size}
+                            onChange={(e) =>
+                              handleSizeChange(index, "size", e.target.value)
+                            }
+                            className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                          />
+                          <input
+                            required
+                            type="number"
+                            placeholder="SL"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleSizeChange(
+                                index,
+                                "quantity",
+                                e.target.value
+                              )
+                            }
+                            className="w-20 border rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                            min="0"
+                          />
+                          <input
+                            required
+                            type="number"
+                            placeholder="Giá riêng"
+                            value={item.price}
+                            onChange={(e) =>
+                              handleSizeChange(index, "price", e.target.value)
+                            }
+                            className="w-28 border rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                            min="0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeSizeRow(index)}
+                            className="text-red-500 hover:text-red-700 p-1 w-6 flex justify-center"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* CỘT PHẢI */}
                 <div className="space-y-4">
                   <h4 className="font-semibold text-gray-700 border-b pb-2">
                     Hình ảnh & Chi tiết
                   </h4>
 
-                  {/* UPLOAD ẢNH (CHỈ DÙNG FILE) */}
                   <div className="flex flex-col gap-3">
                     <label className="block text-sm font-medium text-gray-700">
                       Hình ảnh sản phẩm
@@ -627,19 +693,7 @@ const ProductManager = () => {
                     )}
                   </div>
 
-                  {/* THÔNG TIN PHỤ */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Size
-                      </label>
-                      <input
-                        name="size"
-                        value={formData.size}
-                        onChange={handleInputChange}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
-                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Màu sắc
@@ -651,8 +705,6 @@ const ProductManager = () => {
                         className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Chất liệu
@@ -664,6 +716,8 @@ const ProductManager = () => {
                         className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
                       />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Xuất xứ
@@ -675,21 +729,20 @@ const ProductManager = () => {
                         className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
                       />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bảo hành
-                    </label>
-                    <input
-                      name="warranty"
-                      value={formData.warranty}
-                      onChange={handleInputChange}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bảo hành
+                      </label>
+                      <input
+                        name="warranty"
+                        value={formData.warranty}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Full Width: Mô tả */}
                 <div className="md:col-span-2 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -706,7 +759,6 @@ const ProductManager = () => {
                 </div>
               </div>
 
-              {/* Modal Footer */}
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t sticky bottom-0 bg-white">
                 <button
                   type="button"

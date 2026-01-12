@@ -5,28 +5,43 @@ const CartItem = require("../models/CartItem");
 const Product = require("../models/Product");
 
 async function createOrder(userId, orderData) {
-  const { 
-    shipping_address, 
-    note, 
-    fullname, 
-    phone_number, 
-    payment_method 
-  } = orderData;
+  const { shipping_address, note, fullname, phone_number, payment_method } =
+    orderData;
 
   const cart = await Cart.findOne({ user_id: userId });
   if (!cart) throw new Error("Không tìm thấy giỏ hàng");
 
-  const cartItems = await CartItem.find({ cart_id: cart._id }).populate("product_id");
-  if (cartItems.length === 0) throw new Error("Giỏ hàng trống, không thể đặt hàng");
+  const cartItems = await CartItem.find({ cart_id: cart._id }).populate(
+    "product_id"
+  );
+  if (cartItems.length === 0)
+    throw new Error("Giỏ hàng trống, không thể đặt hàng");
 
   let merchandiseSubtotal = 0;
   const processedItems = [];
 
   for (const item of cartItems) {
     const product = item.product_id;
+    const requestedSize = item.size;
 
-    if (product.quantity < item.quantity) {
-      throw new Error(`Sản phẩm "${product.product_name}" không đủ số lượng tồn kho.`);
+    if (!product.sizes || product.sizes.length === 0) {
+      throw new Error(
+        `Sản phẩm "${product.product_name}" bị lỗi dữ liệu size.`
+      );
+    }
+
+    const sizeVariant = product.sizes.find((s) => s.size === requestedSize);
+
+    if (!sizeVariant) {
+      throw new Error(
+        `Sản phẩm "${product.product_name}" không có size ${requestedSize}.`
+      );
+    }
+
+    if (sizeVariant.quantity < item.quantity) {
+      throw new Error(
+        `Sản phẩm "${product.product_name}" - Size ${requestedSize} không đủ số lượng tồn kho.`
+      );
     }
 
     let originalPrice = product.price;
@@ -37,27 +52,27 @@ async function createOrder(userId, orderData) {
 
     processedItems.push({
       product_id: product._id,
+      size: requestedSize,
       quantity: item.quantity,
-      unit_price: finalPrice, 
-      subtotal: finalPrice * item.quantity
+      unit_price: finalPrice,
+      subtotal: finalPrice * item.quantity,
     });
   }
 
   const shipping_fee = merchandiseSubtotal > 5000000 ? 0 : 30000;
-  
   const total_amount = merchandiseSubtotal + shipping_fee;
 
   const newOrder = new Order({
     user_id: userId,
-    fullname: fullname,           
-    phone_number: phone_number,  
+    fullname: fullname,
+    phone_number: phone_number,
     shipping_address: shipping_address,
-    payment_method: payment_method || 'COD',
-    shipping_fee: shipping_fee, 
-    total_amount: total_amount,  
+    payment_method: payment_method || "COD",
+    shipping_fee: shipping_fee,
+    total_amount: total_amount,
     note: note,
-    order_status: "pending",   
-    payment_status: "pending"   
+    order_status: "pending",
+    payment_status: "pending",
   });
 
   await newOrder.save();
@@ -66,15 +81,17 @@ async function createOrder(userId, orderData) {
     const orderDetail = new OrderDetail({
       order_id: newOrder._id,
       product_id: item.product_id,
+      size: item.size,
       quantity: item.quantity,
       unit_price: item.unit_price,
       subtotal: item.subtotal,
     });
     await orderDetail.save();
 
-    await Product.findByIdAndUpdate(item.product_id, {
-      $inc: { quantity: -item.quantity },
-    });
+    await Product.findOneAndUpdate(
+      { _id: item.product_id, "sizes.size": item.size },
+      { $inc: { "sizes.$.quantity": -item.quantity } }
+    );
   }
 
   await CartItem.deleteMany({ cart_id: cart._id });
@@ -87,20 +104,21 @@ async function rollbackOrder(orderId) {
   if (!order || order.order_status === "cancelled") return;
 
   order.order_status = "cancelled";
-  order.payment_status = "failed"; 
+  order.payment_status = "failed";
   await order.save();
 
   const items = await OrderDetail.find({ order_id: orderId });
   for (const item of items) {
-    await Product.findByIdAndUpdate(item.product_id, {
-      $inc: { quantity: item.quantity },
-    });
+    await Product.findOneAndUpdate(
+      { _id: item.product_id, "sizes.size": item.size },
+      { $inc: { "sizes.$.quantity": item.quantity } }
+    );
   }
 }
 
 async function getOrdersByUser(userId) {
   return await Order.find({ user_id: userId })
-    .populate('payment_id') 
+    .populate("payment_id")
     .sort({ createdAt: -1 });
 }
 
@@ -111,33 +129,53 @@ async function getAllOrders() {
 }
 
 async function updateOrderStatus(orderId, status) {
-  const allowedStatus = ["pending", "processing", "shipping", "delivered", "cancelled"];
-  if (!allowedStatus.includes(status)) throw new Error("Trạng thái không hợp lệ");
+  const allowedStatus = [
+    "pending",
+    "processing",
+    "shipping",
+    "delivered",
+    "cancelled",
+  ];
+  if (!allowedStatus.includes(status))
+    throw new Error("Trạng thái không hợp lệ");
 
-  return await Order.findByIdAndUpdate(orderId, { order_status: status }, { new: true });
+  return await Order.findByIdAndUpdate(
+    orderId,
+    { order_status: status },
+    { new: true }
+  );
 }
 
 async function getOrderById(orderId) {
-  const order = await Order.findById(orderId).populate("user_id", "fullname email phone_number");
+  const order = await Order.findById(orderId).populate(
+    "user_id",
+    "fullname email phone_number"
+  );
   if (!order) throw new Error("Không tìm thấy đơn hàng");
-  
-  const items = await OrderDetail.find({ order_id: orderId }).populate("product_id");
-  
+
+  const items = await OrderDetail.find({ order_id: orderId }).populate(
+    "product_id"
+  );
+
   return { order, items };
 }
 
 async function cancelOrder(userId, orderId) {
   const order = await Order.findOne({ _id: orderId, user_id: userId });
   if (!order) throw new Error("Không tìm thấy đơn hàng.");
-  
-  if (order.order_status !== "pending") throw new Error("Không thể hủy đơn này vì đã được xử lý.");
+
+  if (order.order_status !== "pending")
+    throw new Error("Không thể hủy đơn này vì đã được xử lý.");
 
   order.order_status = "cancelled";
   await order.save();
 
   const orderDetails = await OrderDetail.find({ order_id: order._id });
   for (const item of orderDetails) {
-    await Product.findByIdAndUpdate(item.product_id, { $inc: { quantity: item.quantity } });
+    await Product.findOneAndUpdate(
+      { _id: item.product_id, "sizes.size": item.size },
+      { $inc: { "sizes.$.quantity": item.quantity } }
+    );
   }
   return order;
 }
