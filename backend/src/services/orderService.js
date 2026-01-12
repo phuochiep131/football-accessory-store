@@ -99,7 +99,9 @@ async function rollbackOrder(orderId) {
 }
 
 async function getOrdersByUser(userId) {
-  return await Order.find({ user_id: userId }).sort({ createdAt: -1 });
+  return await Order.find({ user_id: userId })
+    .populate('payment_id') 
+    .sort({ createdAt: -1 });
 }
 
 async function getAllOrders() {
