@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Minus,
   Plus,
-  Loader2
+  Loader2,
+  Zap // Thêm icon sét cho Flash Sale
 } from "lucide-react";
 
 const API_URL = "http://localhost:5000/api";
@@ -32,8 +33,12 @@ const ProductDetail = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // --- STATE FLASH SALE (MỚI) ---
+  const [flashSaleItem, setFlashSaleItem] = useState(null); 
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
   // State tương tác
-  const [selectedSize, setSelectedSize] = useState(null); // Lưu size đang chọn (String)
+  const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState("");
   const [adding, setAdding] = useState(false);
@@ -50,9 +55,11 @@ const ProductDetail = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [productRes, reviewRes] = await Promise.all([
+        // Gọi song song cả API Flash Sale
+        const [productRes, reviewRes, flashSaleRes] = await Promise.all([
           axios.get(`${API_URL}/products/${id}`),
           axios.get(`${API_URL}/reviews/product/${id}`),
+          axios.get(`${API_URL}/flash-sale`).catch(() => ({ data: [] })) // Lấy list Flash Sale
         ]);
 
         const data = productRes.data;
@@ -62,7 +69,19 @@ const ProductDetail = () => {
         );
         setReviews(reviewRes.data);
         
-        // Tự động chọn size đầu tiên còn hàng (nếu có)
+        // --- LOGIC TÌM FLASH SALE CHO SẢN PHẨM NÀY ---
+        const activeSales = flashSaleRes.data || [];
+        // Tìm xem sản phẩm hiện tại (id) có nằm trong list Flash Sale không
+        const currentFlashSale = activeSales.find(sale => 
+            (sale.product_id._id === id) || (sale.product_id === id)
+        );
+        
+        if (currentFlashSale) {
+            setFlashSaleItem(currentFlashSale);
+        }
+        // ---------------------------------------------
+
+        // Tự động chọn size đầu tiên còn hàng
         if (data.sizes && data.sizes.length > 0) {
             const firstAvailable = data.sizes.find(s => s.quantity > 0);
             if (firstAvailable) setSelectedSize(firstAvailable.size);
@@ -80,50 +99,74 @@ const ProductDetail = () => {
       fetchData();
       window.scrollTo(0, 0);
       setQuantity(1);
+      setFlashSaleItem(null); // Reset flash sale khi đổi sản phẩm
     }
   }, [id]);
 
-  // --- 2. LOGIC TÍNH TOÁN ---
+  // --- 2. COUNTDOWN TIMER (Nếu có Flash Sale) ---
+  useEffect(() => {
+    if (!flashSaleItem) return;
+
+    const interval = setInterval(() => {
+        const now = new Date();
+        const endDate = new Date(flashSaleItem.end_date);
+        const diff = endDate - now;
+
+        if (diff <= 0) {
+            setFlashSaleItem(null); // Hết giờ thì bỏ flash sale
+            clearInterval(interval);
+        } else {
+            setTimeLeft({
+                hours: Math.floor((diff / (1000 * 60 * 60)) % 24) + Math.floor(diff / (1000 * 60 * 60 * 24)) * 24, // Cộng dồn ngày vào giờ
+                minutes: Math.floor((diff / 1000 / 60) % 60),
+                seconds: Math.floor((diff / 1000) % 60),
+            });
+        }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [flashSaleItem]);
+
+
+  // --- 3. LOGIC TÍNH TOÁN GIÁ ---
   
-  // Lấy thông tin của size đang chọn
   const currentSizeInfo = useMemo(() => {
       if (!product || !selectedSize) return null;
       return product.sizes.find(s => s.size === selectedSize);
   }, [product, selectedSize]);
 
-  // Tính tổng tồn kho (để hiển thị khi chưa chọn size)
   const totalStock = useMemo(() => {
       if (!product || !product.sizes) return 0;
       return product.sizes.reduce((acc, item) => acc + item.quantity, 0);
   }, [product]);
 
-  // Số lượng tồn kho thực tế để hiển thị và validate
   const currentStock = currentSizeInfo ? currentSizeInfo.quantity : totalStock;
   const isOutOfStock = currentStock === 0;
 
-  // --- LOGIC HIỂN THỊ GIÁ ---
+  // Giá gốc (Base Price)
   const displayPrice = useMemo(() => {
       if (!product) return 0;
-      
-      // Nếu đã chọn size, lấy giá của size đó
       if (currentSizeInfo && currentSizeInfo.price) {
           return currentSizeInfo.price;
       }
-      
-      // Nếu chưa chọn size, lấy giá mặc định của sản phẩm (thường là giá thấp nhất)
       return product.price;
   }, [product, currentSizeInfo]);
 
-  const discount = product?.discount || 0;
-  const finalPrice = displayPrice * (1 - discount / 100);
-
-
-  // --- 3. HANDLERS ---
+  // --- QUYẾT ĐỊNH GIẢM GIÁ (QUAN TRỌNG) ---
+  // Nếu có Flash Sale -> Dùng % của Flash Sale
+  // Nếu không -> Dùng % của Product
+  const currentDiscount = flashSaleItem ? flashSaleItem.discount_percent : (product?.discount || 0);
   
+  // Giá cuối cùng
+  const finalPrice = displayPrice * (1 - currentDiscount / 100);
+
+
+  // --- 4. HANDLERS ---
   const handleQuantityChange = (type) => {
       if (type === 'decrease') {
           if (quantity > 1) setQuantity(quantity - 1);
       } else {
+          // Check giới hạn mua của Flash Sale (nếu cần) hoặc kho
           if (quantity < currentStock) setQuantity(quantity + 1);
           else toast.warning(`Chỉ còn ${currentStock} sản phẩm trong kho!`);
       }
@@ -136,7 +179,6 @@ const ProductDetail = () => {
       return;
     }
 
-    // Validate chọn size
     if (!selectedSize && product.sizes.length > 0) {
         toast.error("Vui lòng chọn Size!");
         return;
@@ -149,11 +191,11 @@ const ProductDetail = () => {
         { 
             productId: id, 
             quantity: quantity,
-            size: selectedSize // Gửi kèm size lên server
+            size: selectedSize 
         },
         { withCredentials: true }
       );
-      toast.success(`Đã thêm Size ${selectedSize} vào giỏ!`);
+      toast.success(`Đã thêm vào giỏ hàng!`);
       fetchCartCount();
     } catch (error) {
       toast.error(error.response?.data?.message || "Lỗi khi thêm vào giỏ");
@@ -162,11 +204,9 @@ const ProductDetail = () => {
     }
   };
 
-  // --- LOADING / ERROR ---
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500"><Loader2 className="animate-spin mr-2"/> Đang tải dữ liệu...</div>;
   if (!product) return <div className="min-h-screen flex items-center justify-center">Không tìm thấy sản phẩm</div>;
 
-  // Specs List (Loại bỏ dòng Size cũ vì đã có bộ chọn riêng)
   const specsList = [
     { label: "Danh mục", value: product.category_id?.name },
     { label: "Màu sắc", value: product.color },
@@ -175,7 +215,6 @@ const ProductDetail = () => {
     { label: "Bảo hành", value: product.warranty },
   ].filter((item) => item.value);
 
-  // Rating
   const averageRating = reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : 0;
@@ -198,11 +237,13 @@ const ProductDetail = () => {
             {/* --- LEFT: IMAGES --- */}
             <div className="space-y-4">
               <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden relative border border-gray-100 flex items-center justify-center group">
-                {product.discount > 0 && (
-                  <span className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-sm">
-                    -{product.discount}%
+                {/* Badge Giảm Giá (Ưu tiên hiển thị Flash Sale) */}
+                {currentDiscount > 0 && (
+                  <span className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-sm ${flashSaleItem ? 'bg-orange-500 animate-pulse' : 'bg-red-600'}`}>
+                    {flashSaleItem ? <><Zap size={12} className="inline mr-1"/>Flash Sale -{currentDiscount}%</> : `-${currentDiscount}%`}
                   </span>
                 )}
+                
                 <img
                   src={mainImage}
                   alt="Main"
@@ -231,7 +272,6 @@ const ProductDetail = () => {
                 <span className="text-gray-500">{reviews.length} đánh giá</span>
                 <span className="text-gray-300">|</span>
                 
-                {/* Dynamic Stock Status */}
                 <span className={`font-bold flex items-center gap-1 ${isOutOfStock ? 'text-red-500' : 'text-green-600'}`}>
                   {isOutOfStock ? (
                       <><AlertCircle size={14} /> Hết hàng</>
@@ -241,24 +281,33 @@ const ProductDetail = () => {
                 </span>
               </div>
 
-              {/* Price Area */}
-              <div className="bg-gray-50 p-5 rounded-2xl mb-6 flex items-center gap-4 border border-gray-100">
-                <span className="text-4xl font-black text-red-600 tracking-tight">
-                  {formatCurrency(finalPrice)}
-                </span>
-                {product.discount > 0 && (
-                  <div className="flex flex-col">
-                    <span className="text-gray-400 line-through text-sm font-medium">
-                      {formatCurrency(displayPrice)}
-                    </span>
-                    <span className="text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full w-fit mt-1">
-                      Tiết kiệm {product.discount}%
-                    </span>
-                  </div>
+              {/* --- PRICE AREA (UPDATED) --- */}
+              <div className={`p-5 rounded-2xl mb-6 border ${flashSaleItem ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-100'}`}>
+                {flashSaleItem && (
+                    <div className="flex items-center gap-2 text-orange-600 font-bold text-sm mb-2 uppercase">
+                        <Zap size={16} className="fill-current" />
+                        Đang trong Flash Sale • Kết thúc sau: {String(timeLeft.hours).padStart(2,'0')}:{String(timeLeft.minutes).padStart(2,'0')}:{String(timeLeft.seconds).padStart(2,'0')}
+                    </div>
                 )}
+
+                <div className="flex items-center gap-4">
+                    <span className={`text-4xl font-black tracking-tight ${flashSaleItem ? 'text-orange-600' : 'text-red-600'}`}>
+                    {formatCurrency(finalPrice)}
+                    </span>
+                    {currentDiscount > 0 && (
+                    <div className="flex flex-col">
+                        <span className="text-gray-400 line-through text-sm font-medium">
+                        {formatCurrency(displayPrice)}
+                        </span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit mt-1 ${flashSaleItem ? 'bg-orange-200 text-orange-700' : 'bg-red-50 text-red-500'}`}>
+                        Tiết kiệm {currentDiscount}%
+                        </span>
+                    </div>
+                    )}
+                </div>
               </div>
 
-              {/* --- SIZE SELECTOR (NEW) --- */}
+              {/* --- SIZE SELECTOR --- */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                     <span className="font-bold text-gray-800 text-sm uppercase">Chọn Size:</span>
@@ -271,7 +320,7 @@ const ProductDetail = () => {
                             key={item.size}
                             onClick={() => {
                                 setSelectedSize(item.size);
-                                setQuantity(1); // Reset số lượng khi đổi size
+                                setQuantity(1);
                             }}
                             disabled={item.quantity === 0}
                             className={`
@@ -284,7 +333,6 @@ const ProductDetail = () => {
                             `}
                         >
                             {item.size}
-                            {/* Gạch chéo nếu hết hàng */}
                             {item.quantity === 0 && (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="w-full h-[1px] bg-gray-400 rotate-45"></div>
@@ -293,9 +341,6 @@ const ProductDetail = () => {
                         </button>
                     ))}
                 </div>
-                {!selectedSize && (
-                     <p className="text-gray-500 text-xs mt-2 italic">* Vui lòng chọn size để xem giá chính xác</p>
-                )}
               </div>
 
               {/* --- QUANTITY SELECTOR --- */}
@@ -319,11 +364,6 @@ const ProductDetail = () => {
                             <Plus size={16} />
                         </button>
                     </div>
-                    {selectedSize && currentStock < 10 && currentStock > 0 && (
-                        <span className="text-orange-500 text-xs font-medium italic">
-                            Chỉ còn {currentStock} sản phẩm!
-                        </span>
-                    )}
                 </div>
               </div>
 
@@ -374,12 +414,10 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Specs & Description */}
+          {/* Specs & Description & Reviews (Giữ nguyên phần dưới) */}
           <div className="p-6 md:p-8 border-t border-gray-100 bg-gray-50/50">
-            <h3 className="font-bold text-lg mb-6 uppercase border-l-4 border-green-600 pl-3">
-              Thông tin chi tiết
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+             {/* ... Code cũ giữ nguyên ... */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="md:col-span-2 text-gray-600 text-sm leading-loose whitespace-pre-line bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 {product.description || "Đang cập nhật mô tả..."}
               </div>

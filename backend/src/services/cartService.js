@@ -1,6 +1,7 @@
 const Cart = require("../models/Cart");
 const CartItem = require("../models/CartItem");
 const Product = require("../models/Product");
+const FlashSale = require("../models/FlashSale");
 
 async function getCart(userId) {
   let cart = await Cart.findOne({ user_id: userId });
@@ -35,6 +36,29 @@ async function addItemToCart(userId, productId, quantity, size) {
     await cart.save();
   }
 
+  // --- 2. TÍNH GIÁ FLASHSALE ---
+  let finalPrice = product.price; 
+  
+  // Kiểm tra xem có Flash Sale đang chạy không
+  const now = new Date();
+  const activeFlashSale = await FlashSale.findOne({
+      product_id: productId,
+      status: true,
+      start_date: { $lte: now },
+      end_date: { $gte: now }
+  });
+
+  // Nếu có Flash Sale, tính giá giảm dựa trên % của Flash Sale
+  if (activeFlashSale) {
+      // Ví dụ: Giá gốc 100k, giảm 20% -> Còn 80k
+      finalPrice = product.price * (1 - activeFlashSale.discount_percent / 100);
+  } else {
+      // Nếu không có Flash Sale, kiểm tra giảm giá thường (nếu có logic này)
+      const regularDiscount = product.discount || 0;
+      finalPrice = product.price * (1 - regularDiscount / 100);
+  }
+  // ------------------------------------
+
   // Tìm xem trong giỏ đã có sp này với size này chưa
   let cartItem = await CartItem.findOne({
     cart_id: cart._id,
@@ -50,13 +74,15 @@ async function addItemToCart(userId, productId, quantity, size) {
       );
     }
     cartItem.quantity += quantity;
+    // Cập nhật lại giá mới nhất (để khách luôn được giá tốt nhất tại thời điểm thêm)
+    cartItem.price_at_time = finalPrice; 
   } else {
     cartItem = new CartItem({
       cart_id: cart._id,
       product_id: productId,
       quantity: quantity,
       size: size,
-      price_at_time: product.price,
+      price_at_time: finalPrice, // Lưu giá đã tính toán (Flash Sale hoặc gốc)
     });
   }
 

@@ -24,6 +24,7 @@ import UserManager from "./pages/admin/UserManager";
 import CategoryManager from "./pages/admin/CategoryManager";
 import OrderManager from "./pages/admin/OrderManager";
 import ReviewManager from "./pages/admin/ReviewManager";
+import FlashSaleManager from "./pages/admin/FlashSaleManager";
 
 // --- LAYOUT COMPONENT ---
 // Layout này giúp Navbar và Footer luôn hiển thị, chỉ có phần giữa (Outlet) thay đổi
@@ -89,7 +90,7 @@ function App() {
           <Route path="categories" element={<CategoryManager />} />
           <Route path="orders" element={<OrderManager />} />
           <Route path="reviews" element={<ReviewManager />} />
-          {/* Thêm các route khác: orders, users... */}
+          <Route path="flash-sales" element={<FlashSaleManager />} />
         </Route>
       </Route>
     </Routes>

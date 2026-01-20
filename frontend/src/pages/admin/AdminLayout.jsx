@@ -14,6 +14,7 @@ import {
   Menu,
   ChevronDown,
   MessageSquare,
+  Zap
 } from "lucide-react";
 
 const AdminLayout = () => {
@@ -66,6 +67,11 @@ const AdminLayout = () => {
       path: "/admin/reviews",
       name: "Đánh giá",
       icon: <MessageSquare size={20} />,
+    },
+    {
+      path: "/admin/flash-sales",
+      name: "Flash Sale",
+      icon: <Zap size={20} />,
     },
   ];
 

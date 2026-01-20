@@ -79,9 +79,7 @@ const Checkout = () => {
             id: item._id,
             name: item.product_id.product_name,
             price: item.product_id.price,
-            currentPrice: item.product_id.discount
-              ? item.product_id.price * (1 - item.product_id.discount / 100)
-              : item.product_id.price,
+            currentPrice: item.price_at_time,
             image: item.product_id.image_url || "https://placehold.co/200x200",
             quantity: item.quantity,
             size: item.size,

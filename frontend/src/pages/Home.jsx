@@ -10,6 +10,9 @@ import {
   FaChevronRight,
   FaShieldAlt,
   FaChevronDown,
+  FaBolt,
+  FaClock,
+  FaFire,
 } from "react-icons/fa";
 import {
   GiSoccerKick,
@@ -28,6 +31,13 @@ import TopBanner from "../assets/top_banner.jpg";
 import BottomBanner from "../assets/bottom_banner.jpg";
 
 const API_URL = "http://localhost:5000/api";
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(amount);
+};
 
 const getCategoryStyle = (name) => {
   if (!name)
@@ -92,15 +102,29 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(8);
 
+  const [flashSaleProducts, setFlashSaleProducts] = useState([]);
+  const [flashSaleEndTime, setFlashSaleEndTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  // --- 1. FETCH DATA ---
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [categoryRes, productRes] = await Promise.all([
+        const [categoryRes, productRes, flashSaleRes] = await Promise.all([
           axios.get(`${API_URL}/categories`),
           axios.get(`${API_URL}/products`),
+          axios.get(`${API_URL}/flash-sale`).catch(() => ({ data: [] })) 
         ]);
+
         setCategories(categoryRes.data);
         setProducts(productRes.data);
+
+        const salesData = flashSaleRes ? flashSaleRes.data : [];
+        if (salesData && salesData.length > 0) {
+            setFlashSaleProducts(salesData);
+            setFlashSaleEndTime(new Date(salesData[0].end_date));
+        }
+
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);
       } finally {
@@ -109,6 +133,47 @@ const Home = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchFlashSaleData = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/flash-sale`);
+            if (res.data && res.data.length > 0) {
+                setFlashSaleProducts(res.data);
+            }
+        } catch (error) {
+            console.error("Lỗi cập nhật flash sale:", error);
+        }
+    };
+    const intervalId = setInterval(fetchFlashSaleData, 10000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // --- 3. COUNTDOWN TIMER ---
+  useEffect(() => {
+    if (!flashSaleEndTime) return;
+
+    const calculateTimeLeft = () => {
+        const now = new Date();
+        const difference = flashSaleEndTime - now;
+
+        if (difference > 0) {
+            setTimeLeft({
+                days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+                hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+                minutes: Math.floor((difference / 1000 / 60) % 60),
+                seconds: Math.floor((difference / 1000) % 60),
+            });
+        } else {
+            setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+            setFlashSaleProducts([]); // Hết giờ thì ẩn
+        }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [flashSaleEndTime]);
 
   const handleLoadMore = () => {
     setVisibleCount((prev) => prev + 8);
@@ -246,7 +311,101 @@ const Home = () => {
         </div>
       </section>
 
-      {/* --- 3. SẢN PHẨM TUYỂN CHỌN --- */}
+      {/* --- 3. FLASH SALE SECTION --- */}
+      {flashSaleProducts.length > 0 && (
+        <section className="container mx-auto px-4 mb-16 relative z-10">
+          <div className="bg-gradient-to-r from-red-600 to-orange-500 rounded-3xl p-6 shadow-xl text-white">
+            {/* Header Flash Sale */}
+            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4 border-b border-white/20 pb-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl md:text-4xl font-black italic flex items-center gap-2 uppercase tracking-tighter">
+                  <FaBolt className="text-yellow-300 animate-pulse" /> FLASH SALE
+                </h2>
+                
+                {/* Đồng hồ đếm ngược */}
+                <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2 rounded-xl text-sm md:text-base font-bold border border-white/10 shadow-inner">
+                  <FaClock className="text-yellow-300" />
+                  {timeLeft.days > 0 && (
+                    <><span className="text-yellow-300">{timeLeft.days}d</span> : </>
+                  )}
+                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.hours).padStart(2, "0")}</span> :
+                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.minutes).padStart(2, "0")}</span> :
+                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.seconds).padStart(2, "0")}</span>
+                </div>
+              </div>
+
+              <Link to="/flash-sale" className="text-white text-sm font-bold uppercase tracking-wider hover:text-yellow-300 flex items-center gap-1 transition-colors">
+                Xem tất cả <FaChevronRight />
+              </Link>
+            </div>
+
+            {/* List sản phẩm Flash Sale */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {flashSaleProducts.map((item) => {
+                 const product = item.product_id;
+                 if (!product) return null;
+
+                 const currentPrice = product.price * (1 - item.discount_percent / 100);
+                 const percentSold = item.quantity > 0 
+                     ? Math.round((item.sold / item.quantity) * 100) 
+                     : 100;
+
+                 return (
+                  <Link
+                    to={`/product/${product._id}`}
+                    key={item._id}
+                    className="bg-white text-gray-800 rounded-xl p-3 hover:shadow-2xl transition-all transform hover:-translate-y-1 relative group"
+                  >
+                    {/* Badge giảm giá */}
+                    <div className="absolute top-0 right-0 bg-yellow-400 text-red-700 text-xs font-black px-2 py-1 rounded-bl-xl rounded-tr-xl z-10 shadow-sm">
+                      -{item.discount_percent}%
+                    </div>
+
+                    <div className="w-full h-32 md:h-40 mb-3 overflow-hidden rounded-lg bg-gray-50 flex items-center justify-center">
+                        <img
+                          src={product.image_url || "https://placehold.co/300x300"}
+                          alt={product.product_name}
+                          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                        />
+                    </div>
+
+                    <h4 className="text-xs md:text-sm font-bold text-gray-800 line-clamp-2 mb-1 h-9 leading-tight">
+                      {product.product_name}
+                    </h4>
+
+                    <div className="flex flex-col mb-3">
+                      <span className="text-red-600 font-extrabold text-base">
+                        {formatCurrency(currentPrice)}
+                      </span>
+                      <span className="text-gray-400 text-[10px] line-through">
+                        {formatCurrency(product.price)}
+                      </span>
+                    </div>
+
+                    {/* Thanh tiến trình */}
+                    <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden border border-gray-100">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full transition-all duration-500"
+                        style={{ width: `${percentSold}%` }}
+                      ></div>
+                      <span className="absolute inset-0 flex items-center justify-center text-[8px] text-white font-black uppercase tracking-wider z-10 drop-shadow-md">
+                        Đã bán {item.sold}
+                      </span>
+                      {percentSold >= 90 && (
+                         <div className="absolute right-0 top-0 h-full flex items-center pr-1">
+                             <FaFire className="text-yellow-200 text-[10px] animate-pulse" />
+                         </div>
+                      )}
+                    </div>
+                  </Link>
+                 );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* --- 4. SẢN PHẨM TUYỂN CHỌN --- */}
       <section className="container mx-auto px-4 mb-16">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 border-b border-gray-200 pb-4">
           <div className="mt-4">
