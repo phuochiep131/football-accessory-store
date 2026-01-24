@@ -124,6 +124,25 @@ const Home = () => {
             setFlashSaleProducts(salesData);
             setFlashSaleEndTime(new Date(salesData[0].end_date));
         }
+const productsAll = productRes.data.map((prod) => {
+    // Tìm xem sản phẩm này có nằm trong danh sách Flash Sale không
+    const saleItem = salesData.find(item => item.product_id._id === prod._id);
+    if (saleItem) {
+        // Nếu có, thêm field flash_sale vào object product
+        return { 
+            ...prod, 
+            flash_sale: {
+                discount_percent: saleItem.discount_percent,
+                sold: saleItem.sold,
+                quantity: saleItem.quantity,
+                sale_price: null
+            }
+        };
+    }
+    return prod;
+});
+
+setProducts(productsAll);
 
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);

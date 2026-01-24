@@ -8,6 +8,8 @@ import {
   Check,
   Loader2,
   ListFilter,
+  Zap, // Icon tia sét
+  Flame, // Icon lửa
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
@@ -25,51 +27,66 @@ const ProductCard = ({ product }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
 
-  // 1. Tính giá sau giảm
-  const hasDiscount = product.discount && product.discount > 0;
-  const originalPrice = product.price;
-  const currentPrice = hasDiscount
-    ? originalPrice * (1 - product.discount / 100)
-    : originalPrice;
+  // --- 1. KIỂM TRA FLASH SALE ---
+  // Lưu ý: Dữ liệu flash_sale cần được gộp vào product từ trang Home (xem Bước 2)
+  const flashSale = product.flash_sale; 
+  const isFlashSaleActive = useMemo(() => {
+    if (!flashSale) return false;
+    // Kiểm tra thêm thời gian nếu cần, tạm thời coi như có flashSale là Active
+    return true; 
+  }, [flashSale]);
 
-  // 2. Tính tổng số lượng tồn kho từ mảng sizes
+  // --- 2. TÍNH GIÁ & % GIẢM ---
+  const originalPrice = product.price;
+  let currentPrice, discountPercent;
+
+  if (isFlashSaleActive) {
+    // Logic giá Flash Sale (Ưu tiên)
+    discountPercent = flashSale.discount_percent;
+    // Nếu có sale_price cứng thì dùng, không thì tính theo %
+    currentPrice = flashSale.sale_price 
+      ? flashSale.sale_price 
+      : originalPrice * (1 - discountPercent / 100);
+  } else {
+    // Logic giá thường
+    discountPercent = product.discount || 0;
+    currentPrice = originalPrice * (1 - discountPercent / 100);
+  }
+
+  const hasDiscount = discountPercent > 0;
+
+  // Tính % đã bán cho thanh progress
+  const soldPercent = isFlashSaleActive && flashSale.quantity > 0
+    ? Math.min((flashSale.sold / flashSale.quantity) * 100, 100)
+    : 0;
+
+  // --- 3. KHO & SIZE ---
   const totalStock = useMemo(() => {
     if (product.sizes && product.sizes.length > 0) {
       return product.sizes.reduce((acc, item) => acc + item.quantity, 0);
     }
-    return 0; // Hoặc product.quantity nếu bạn giữ field cũ để backup
-  }, [product.sizes]);
+    return product.quantity || 0;
+  }, [product.sizes, product.quantity]);
 
   const isOutOfStock = totalStock === 0;
-
-  // 3. Kiểm tra xem sản phẩm có nhiều size không
-  // Nếu > 1 size: Cần vào trang chi tiết để chọn.
-  // Nếu = 1 size: Có thể thêm nhanh.
   const hasMultipleSizes = product.sizes && product.sizes.length > 1;
 
-  // Xử lý logic nút bấm
+  // --- 4. XỬ LÝ CLICK ---
   const handleButtonClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Nếu hết hàng thì không làm gì
     if (isOutOfStock || isAdding) return;
 
-    // TRƯỜNG HỢP 1: Có nhiều size -> Chuyển hướng sang trang chi tiết
     if (hasMultipleSizes) {
       navigate(`/product/${product._id}`);
       return;
     }
 
-    // TRƯỜNG HỢP 2: Chỉ có 1 size duy nhất (Bóng, Balo...) -> Thêm ngay
     setIsAdding(true);
-
-    // Lấy size duy nhất đó (ví dụ: "Free size" hoặc "5")
-    const singleSize = product.sizes[0]?.size || "Default";
-
-    // Gọi hàm addToCart (Lưu ý: Bạn cần update Context để nhận thêm tham số size)
+    const singleSize = product.sizes?.[0]?.size || "Default";
+    // Gọi hàm addToCart
     const success = await addToCart(product._id, 1, singleSize);
-
     setIsAdding(false);
 
     if (success) {
@@ -80,13 +97,16 @@ const ProductCard = ({ product }) => {
 
   return (
     <div className="group relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full font-sans">
+      
       {/* --- Image Area --- */}
-      <div className="relative aspect-square bg-gray-50 p-6 overflow-hidden">
-        {/* Badge Giảm giá */}
+      <div className="relative aspect-square bg-gray-50 p-6 overflow-hidden flex items-center justify-center">
+        
+        {/* BADGE GIẢM GIÁ: Nếu Flash Sale thì màu Vàng, thường thì màu Đỏ */}
         {hasDiscount && (
-          <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md z-10 skew-x-[-10deg]">
-            -{product.discount}%
-          </span>
+          <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl rounded-tr-xl z-10 shadow-sm font-black text-xs
+            ${isFlashSaleActive ? "bg-yellow-400 text-red-700" : "bg-red-600 text-white"}`}>
+             -{discountPercent}%
+          </div>
         )}
 
         {/* Badge Hết hàng */}
@@ -98,11 +118,9 @@ const ProductCard = ({ product }) => {
           </div>
         )}
 
-        <Link to={`/product/${product._id}`}>
+        <Link to={`/product/${product._id}`} className="w-full h-full flex items-center justify-center">
           <img
-            src={
-              product.image_url || "https://placehold.co/400x400?text=No+Image"
-            }
+            src={product.image_url || "https://placehold.co/400x400?text=No+Image"}
             alt={product.product_name}
             className={`w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-110 ${
               isOutOfStock ? "grayscale opacity-70" : ""
@@ -110,8 +128,8 @@ const ProductCard = ({ product }) => {
           />
         </Link>
 
-        {/* Action Buttons (Hover) */}
-        <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 z-20">
+        {/* Action Buttons */}
+        <div className="absolute left-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-x-4 group-hover:translate-x-0 z-20">
           <button className="bg-white p-2 rounded-full shadow-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
             <Heart size={18} />
           </button>
@@ -122,70 +140,76 @@ const ProductCard = ({ product }) => {
       </div>
 
       {/* --- Content Area --- */}
-      <div className="p-4 flex-1 flex flex-col">
-        {/* Rating */}
-        <div className="flex items-center gap-1 mb-2">
-          <div className="flex text-yellow-400">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} size={12} fill="currentColor" />
-            ))}
-          </div>
-          <span className="text-xs text-gray-500 font-medium ml-1">
-            (5 đánh giá)
-          </span>
-        </div>
-
+      <div className="p-3 md:p-4 flex-1 flex flex-col">
         {/* Tên sản phẩm */}
         <Link to={`/product/${product._id}`}>
-          <h3 className="text-gray-800 font-bold text-sm md:text-base line-clamp-2 mb-2 h-10 md:h-12 leading-tight group-hover:text-green-600 transition-colors uppercase">
+          <h3 className="text-gray-800 font-bold text-sm md:text-base line-clamp-2 mb-2 h-10 leading-tight group-hover:text-green-600 transition-colors uppercase">
             {product.product_name}
           </h3>
         </Link>
 
         {/* Giá tiền */}
         <div className="mb-3">
-          <span className="text-gray-400 text-xs line-through h-4 block">
-            {hasDiscount ? formatCurrency(originalPrice) : ""}
-          </span>
-          <span className="text-red-600 font-black text-lg md:text-xl">
-            {formatCurrency(currentPrice)}
-          </span>
+          <div className="flex items-end gap-2 flex-wrap">
+              <span className="text-red-600 font-black text-lg md:text-xl">
+                  {formatCurrency(currentPrice)}
+              </span>
+              {hasDiscount && (
+                  <span className="text-gray-400 text-xs line-through mb-1">
+                  {formatCurrency(originalPrice)}
+                  </span>
+              )}
+          </div>
+
+          {/* --- THANH TIẾN ĐỘ FLASH SALE (Mới thêm) --- */}
+          {isFlashSaleActive && (
+              <div className="mt-2 relative w-full h-3 bg-gray-200 rounded-full overflow-hidden border border-gray-100">
+                  <div
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-500"
+                      style={{ width: `${soldPercent}%` }}
+                  ></div>
+                  <div className="absolute inset-0 flex items-center justify-center text-[8px] text-white font-black uppercase tracking-wider z-10 drop-shadow-md">
+                      Đã bán {flashSale.sold}
+                  </div>
+                  {/* Icon lửa nếu bán chạy */}
+                  {soldPercent >= 80 && (
+                      <div className="absolute right-0 top-0 h-full flex items-center pr-1">
+                          <Flame size={10} className="text-yellow-200 fill-yellow-200 animate-pulse" />
+                      </div>
+                  )}
+              </div>
+          )}
         </div>
 
-        {/* --- SMART ACTION BUTTON --- */}
+        {/* --- Button --- */}
         <div className="mt-auto">
           <button
             onClick={handleButtonClick}
             disabled={isAdding || isOutOfStock}
-            className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-sm 
+            className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-sm text-sm
                 ${
                   isOutOfStock
-                    ? "bg-gray-200 text-gray-400 cursor-not-allowed" // Style khi hết hàng
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                     : isAdded
                     ? "bg-green-600 text-white"
-                    : "bg-gray-900 text-white hover:bg-green-600" // Style mặc định
+                    : "bg-gray-900 text-white hover:bg-green-600"
                 }`}
           >
-            {/* LOGIC HIỂN THỊ ICON VÀ TEXT TRONG NÚT */}
             {isAdding ? (
               <Loader2 size={18} className="animate-spin" />
             ) : isAdded ? (
               <>
-                <Check size={18} /> <span className="text-sm">Đã thêm</span>
+                <Check size={18} /> Đã thêm
               </>
             ) : isOutOfStock ? (
-              <span className="text-sm uppercase">Tạm hết hàng</span>
+              "HẾT HÀNG"
             ) : hasMultipleSizes ? (
-              // Nếu nhiều size -> Hiện icon List -> Bấm vào sẽ chuyển trang
               <>
-                <ListFilter size={18} />
-                <span className="text-sm uppercase">Tùy chọn</span>
+                <ListFilter size={18} /> TÙY CHỌN
               </>
             ) : (
-              // Nếu 1 size -> Hiện icon Giỏ hàng -> Bấm vào thêm ngay
               <>
-                <ShoppingCart size={18} />
-                <span className="text-sm uppercase">Thêm vào giỏ</span>
+                <ShoppingCart size={18} /> THÊM GIỎ
               </>
             )}
           </button>
