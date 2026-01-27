@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 
-const API_URL = "http://localhost:5000/api/dashboard"; // Đảm bảo port đúng
+const API_URL = "http://localhost:5000/api/dashboard";
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
@@ -36,11 +36,44 @@ const Dashboard = () => {
       currency: "VND",
     }).format(amount);
 
-  // const formatDate = (dateString) =>
-  //   new Date(dateString).toLocaleDateString("vi-VN", {
-  //     day: "2-digit",
-  //     month: "2-digit",
-  //   });
+  // --- CẤU HÌNH TRẠNG THÁI (TIẾNG VIỆT & MÀU SẮC) ---
+  const statusConfig = {
+    pending: {
+      label: "Chờ xử lý",
+      color: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+    },
+    processing: {
+      label: "Đang đóng gói",
+      color: "bg-blue-100 text-blue-700 border border-blue-200",
+    },
+    shipping: {
+      label: "Đang giao hàng",
+      color: "bg-purple-100 text-purple-700 border border-purple-200",
+    },
+    delivered: {
+      label: "Đã giao",
+      color: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+    },
+    cancelled: {
+      label: "Đã hủy",
+      color: "bg-red-100 text-red-700 border border-red-200",
+    },
+    default: {
+      label: "Không xác định",
+      color: "bg-gray-100 text-gray-700 border border-gray-200",
+    },
+  };
+
+  const getStatusBadge = (status) => {
+    const config = statusConfig[status] || statusConfig.default;
+    return (
+      <span
+        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${config.color}`}
+      >
+        {config.label}
+      </span>
+    );
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -67,7 +100,6 @@ const Dashboard = () => {
 
   if (!data) return <div className="p-10 text-center">Không có dữ liệu.</div>;
 
-  // Xử lý dữ liệu biểu đồ
   const revenueChartData = Array.from({ length: 12 }, (_, i) => {
     const monthData = data.chartData.find((item) => item._id === i + 1);
     return {
@@ -92,14 +124,14 @@ const Dashboard = () => {
       subtext: "Đơn hàng mới",
     },
     {
-      label: "Tổng Khách Hàng",
+      label: "Tổng khách hàng",
       value: data.stats.users,
       icon: <Users size={24} className="text-white" />,
       bg: "bg-indigo-600",
       subtext: "Thành viên",
     },
     {
-      label: "Mã Sản Phẩm",
+      label: "Tổng tồn kho",
       value: data.stats.products,
       icon: <Box size={24} className="text-white" />,
       bg: "bg-orange-500",
@@ -109,7 +141,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-6">
-      {/* 1. Header & Stats Cards */}
+      {/* 1. Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Tổng Quan</h1>
@@ -120,6 +152,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* 2. Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsCards.map((stat, index) => (
           <div
@@ -149,7 +182,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 2. Biểu đồ doanh thu (2 phần) */}
+        {/* 3. Chart */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             <TrendingUp className="text-emerald-600" size={20} /> Biểu đồ doanh
@@ -201,7 +234,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* 3. Top Selling Products (1 phần) */}
+        {/* 4. Best Sellers */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             <Trophy className="text-yellow-500" size={20} /> Bán Chạy Nhất
@@ -258,7 +291,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 4. Dead Stock (Hàng tồn kho) */}
+        {/* 5. Dead Stock */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 border-l-4 border-l-red-500">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -330,7 +363,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* 5. Đơn hàng gần đây */}
+        {/* 6. Recent Orders (ĐÃ SỬA PHẦN NÀY) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-slate-800">
@@ -374,21 +407,13 @@ const Dashboard = () => {
                         </span>
                       </div>
                     </td>
+
+                    {/* --- PHẦN ĐÃ SỬA: GỌI HÀM GETSTATUSBADGE --- */}
                     <td className="py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          order.order_status === "delivered"
-                            ? "bg-green-100 text-green-700"
-                            : order.order_status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : order.order_status === "cancelled"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {order.order_status}
-                      </span>
+                      {getStatusBadge(order.order_status)}
                     </td>
+                    {/* ------------------------------------------- */}
+
                     <td className="py-3 text-right font-bold text-slate-700">
                       {formatCurrency(order.total_amount)}
                     </td>

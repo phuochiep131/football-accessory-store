@@ -1,5 +1,5 @@
 const Order = require("../models/Order");
-const OrderDetail = require("../models/OrderDetail"); // Model mới thêm
+const OrderDetail = require("../models/OrderDetail");
 const User = require("../models/User");
 const Product = require("../models/Product");
 
@@ -9,7 +9,7 @@ const getDashboardStats = async () => {
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-  // 1. DOANH THU & ĐƠN HÀNG THÁNG NÀY (Lấy từ bảng Order)
+  // 1. DOANH THU & ĐƠN HÀNG THÁNG NÀY
   const thisMonthRevenueData = await Order.aggregate([
     {
       $match: {
@@ -25,9 +25,21 @@ const getDashboardStats = async () => {
     order_date: { $gte: firstDayOfThisMonth },
   });
 
-  // 2. CÁC CHỈ SỐ TỔNG (Lấy từ Order, User, Product)
-  const totalUsers = await User.countDocuments(); // Hoặc { role: "Customer" } nếu có role
-  const totalProducts = await Product.countDocuments();
+  // 2. CÁC CHỈ SỐ TỔNG QUAN
+  const totalUsers = await User.countDocuments();
+
+  // --- SỬA LOGIC Ở ĐÂY: TÍNH TỔNG SỐ LƯỢNG TỒN KHO (ITEMS) ---
+  const totalStockData = await Product.aggregate([
+    { $unwind: "$sizes" }, // Tách mảng sizes ra thành từng dòng riêng biệt
+    {
+      $group: {
+        _id: null,
+        totalQuantity: { $sum: "$sizes.quantity" }, // Cộng dồn quantity
+      },
+    },
+  ]);
+  const totalStock = totalStockData[0]?.totalQuantity || 0;
+  // -----------------------------------------------------------
 
   // Tính tổng doanh thu toàn thời gian
   const totalRevenueData = await Order.aggregate([
@@ -36,7 +48,7 @@ const getDashboardStats = async () => {
   ]);
   const revenueTotal = totalRevenueData[0]?.total || 0;
 
-  // 3. BIỂU ĐỒ DOANH THU 12 THÁNG (Lấy từ Order)
+  // 3. BIỂU ĐỒ DOANH THU 12 THÁNG
   const monthlyRevenue = await Order.aggregate([
     { $match: { order_status: "delivered" } },
     {
@@ -48,31 +60,27 @@ const getDashboardStats = async () => {
     { $sort: { _id: 1 } },
   ]);
 
-  // 4. TOP SẢN PHẨM BÁN CHẠY (Phức tạp: Từ OrderDetail -> Order -> Product)
+  // 4. TOP SẢN PHẨM BÁN CHẠY
   const topProducts = await OrderDetail.aggregate([
-    // Bước 1: Join với Order để check trạng thái đơn hàng
     {
       $lookup: {
-        from: "orders", // Tên collection trong MongoDB (thường là số nhiều của model)
+        from: "orders",
         localField: "order_id",
         foreignField: "_id",
         as: "order",
       },
     },
     { $unwind: "$order" },
-    // Bước 2: Chỉ lấy đơn đã giao
     { $match: { "order.order_status": "delivered" } },
-    // Bước 3: Group theo Product ID để tính tổng số lượng bán
     {
       $group: {
         _id: "$product_id",
         totalSold: { $sum: "$quantity" },
-        revenue: { $sum: "$subtotal" }, // OrderDetail có field subtotal
+        revenue: { $sum: "$subtotal" },
       },
     },
     { $sort: { totalSold: -1 } },
     { $limit: 5 },
-    // Bước 4: Join với Product để lấy tên và ảnh
     {
       $lookup: {
         from: "products",
@@ -82,19 +90,17 @@ const getDashboardStats = async () => {
       },
     },
     { $unwind: "$productInfo" },
-    // Bước 5: Format lại dữ liệu cho Frontend dễ dùng
     {
       $project: {
-        name: "$productInfo.product_name", // Map product_name -> name
-        image: "$productInfo.image_url", // Map image_url -> image
+        name: "$productInfo.product_name",
+        image: "$productInfo.image_url",
         totalSold: 1,
         revenue: 1,
       },
     },
   ]);
 
-  // 5. HÀNG TỒN KHO > 3 THÁNG (Dead Stock)
-  // Bước A: Tìm list ID sản phẩm đã bán được trong 3 tháng qua
+  // 5. HÀNG TỒN KHO > 3 THÁNG
   const soldItems = await OrderDetail.aggregate([
     {
       $lookup: {
@@ -116,14 +122,12 @@ const getDashboardStats = async () => {
 
   const soldProductIds = soldItems.map((item) => item._id);
 
-  // Bước B: Tìm sản phẩm KHÔNG nằm trong danh sách đã bán & Tính tổng tồn kho
   const deadStockRaw = await Product.find({
     _id: { $nin: soldProductIds },
   })
     .limit(10)
     .select("product_name image_url price sizes");
 
-  // Format lại dữ liệu Dead Stock và tính tổng quantity từ mảng sizes
   const deadStockProducts = deadStockRaw
     .map((p) => {
       const totalQty = p.sizes
@@ -131,19 +135,18 @@ const getDashboardStats = async () => {
         : 0;
       return {
         _id: p._id,
-        name: p.product_name, // Map lại tên
-        image: p.image_url, // Map lại ảnh
+        name: p.product_name,
+        image: p.image_url,
         price: p.price,
-        quantity: totalQty, // Tổng số lượng tồn của tất cả các size
+        quantity: totalQty,
       };
     })
-    .filter((p) => p.quantity > 0); // Chỉ lấy những sp thực sự còn hàng
+    .filter((p) => p.quantity > 0);
 
   // 6. ĐƠN HÀNG GẦN ĐÂY
   const recentOrders = await Order.find()
     .sort({ order_date: -1 })
     .limit(5)
-    // Lưu ý: User trong Order schema là ref 'User', field là 'user_id'
     .populate("user_id", "fullname email");
 
   return {
@@ -153,7 +156,7 @@ const getDashboardStats = async () => {
       ordersThisMonth,
       ordersTotal: await Order.countDocuments(),
       users: totalUsers,
-      products: totalProducts,
+      products: totalStock, // <-- TRẢ VỀ TỔNG SỐ LƯỢNG TỒN KHO THỰC TẾ
     },
     chartData: monthlyRevenue,
     topProducts,
