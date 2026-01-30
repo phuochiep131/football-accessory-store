@@ -105,7 +105,12 @@ const Home = () => {
 
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [flashSaleEndTime, setFlashSaleEndTime] = useState(null);
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
 
   // --- 1. FETCH DATA ---
   useEffect(() => {
@@ -114,7 +119,7 @@ const Home = () => {
         const [categoryRes, productRes, flashSaleRes] = await Promise.all([
           axios.get(`${API_URL}/categories`),
           axios.get(`${API_URL}/products`),
-          axios.get(`${API_URL}/flash-sale`).catch(() => ({ data: [] })) 
+          axios.get(`${API_URL}/flash-sale`).catch(() => ({ data: [] })),
         ]);
 
         setCategories(categoryRes.data);
@@ -122,29 +127,31 @@ const Home = () => {
 
         const salesData = flashSaleRes ? flashSaleRes.data : [];
         if (salesData && salesData.length > 0) {
-            setFlashSaleProducts(salesData);
-            setFlashSaleEndTime(new Date(salesData[0].end_date));
+          setFlashSaleProducts(salesData);
+          setFlashSaleEndTime(new Date(salesData[0].end_date));
         }
-const productsAll = productRes.data.map((prod) => {
-    // Tìm xem sản phẩm này có nằm trong danh sách Flash Sale không
-    const saleItem = salesData.find(item => item.product_id._id === prod._id);
-    if (saleItem) {
-        // Nếu có, thêm field flash_sale vào object product
-        return { 
-            ...prod, 
-            flash_sale: {
+        const productsAll = productRes.data.map((prod) => {
+          // Tìm xem sản phẩm này có nằm trong danh sách Flash Sale không
+          // const saleItem = salesData.find(item => item.product_id._id === prod._id);
+          const saleItem = salesData.find(
+            (item) => item.product_id && item.product_id._id === prod._id,
+          );
+          if (saleItem) {
+            // Nếu có, thêm field flash_sale vào object product
+            return {
+              ...prod,
+              flash_sale: {
                 discount_percent: saleItem.discount_percent,
                 sold: saleItem.sold,
                 quantity: saleItem.quantity,
-                sale_price: null
-            }
-        };
-    }
-    return prod;
-});
+                sale_price: null,
+              },
+            };
+          }
+          return prod;
+        });
 
-setProducts(productsAll);
-
+        setProducts(productsAll);
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);
       } finally {
@@ -156,14 +163,14 @@ setProducts(productsAll);
 
   useEffect(() => {
     const fetchFlashSaleData = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/flash-sale`);
-            if (res.data && res.data.length > 0) {
-                setFlashSaleProducts(res.data);
-            }
-        } catch (error) {
-            console.error("Lỗi cập nhật flash sale:", error);
+      try {
+        const res = await axios.get(`${API_URL}/flash-sale`);
+        if (res.data && res.data.length > 0) {
+          setFlashSaleProducts(res.data);
         }
+      } catch (error) {
+        console.error("Lỗi cập nhật flash sale:", error);
+      }
     };
     const intervalId = setInterval(fetchFlashSaleData, 10000);
     return () => clearInterval(intervalId);
@@ -174,20 +181,20 @@ setProducts(productsAll);
     if (!flashSaleEndTime) return;
 
     const calculateTimeLeft = () => {
-        const now = new Date();
-        const difference = flashSaleEndTime - now;
+      const now = new Date();
+      const difference = flashSaleEndTime - now;
 
-        if (difference > 0) {
-            setTimeLeft({
-                days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-                hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-                minutes: Math.floor((difference / 1000 / 60) % 60),
-                seconds: Math.floor((difference / 1000) % 60),
-            });
-        } else {
-            setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-            setFlashSaleProducts([]); // Hết giờ thì ẩn
-        }
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        setFlashSaleProducts([]); // Hết giờ thì ẩn
+      }
     };
 
     calculateTimeLeft();
@@ -339,22 +346,37 @@ setProducts(productsAll);
             <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4 border-b border-white/20 pb-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl md:text-4xl font-black italic flex items-center gap-2 uppercase tracking-tighter">
-                  <FaBolt className="text-yellow-300 animate-pulse" /> FLASH SALE
+                  <FaBolt className="text-yellow-300 animate-pulse" /> FLASH
+                  SALE
                 </h2>
-                
+
                 {/* Đồng hồ đếm ngược */}
                 <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2 rounded-xl text-sm md:text-base font-bold border border-white/10 shadow-inner">
                   <FaClock className="text-yellow-300" />
                   {timeLeft.days > 0 && (
-                    <><span className="text-yellow-300">{timeLeft.days}d</span> : </>
+                    <>
+                      <span className="text-yellow-300">{timeLeft.days}d</span>{" "}
+                      :{" "}
+                    </>
                   )}
-                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.hours).padStart(2, "0")}</span> :
-                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.minutes).padStart(2, "0")}</span> :
-                  <span className="bg-white/20 px-2 rounded">{String(timeLeft.seconds).padStart(2, "0")}</span>
+                  <span className="bg-white/20 px-2 rounded">
+                    {String(timeLeft.hours).padStart(2, "0")}
+                  </span>{" "}
+                  :
+                  <span className="bg-white/20 px-2 rounded">
+                    {String(timeLeft.minutes).padStart(2, "0")}
+                  </span>{" "}
+                  :
+                  <span className="bg-white/20 px-2 rounded">
+                    {String(timeLeft.seconds).padStart(2, "0")}
+                  </span>
                 </div>
               </div>
 
-              <Link to="/flash-sale" className="text-white text-sm font-bold uppercase tracking-wider hover:text-yellow-300 flex items-center gap-1 transition-colors">
+              <Link
+                to="/flash-sale"
+                className="text-white text-sm font-bold uppercase tracking-wider hover:text-yellow-300 flex items-center gap-1 transition-colors"
+              >
                 Xem tất cả <FaChevronRight />
               </Link>
             </div>
@@ -362,15 +384,17 @@ setProducts(productsAll);
             {/* List sản phẩm Flash Sale */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {flashSaleProducts.map((item) => {
-                 const product = item.product_id;
-                 if (!product) return null;
+                const product = item.product_id;
+                if (!product) return null;
 
-                 const currentPrice = product.price * (1 - item.discount_percent / 100);
-                 const percentSold = item.quantity > 0 
-                     ? Math.round((item.sold / item.quantity) * 100) 
-                     : 100;
+                const currentPrice =
+                  product.price * (1 - item.discount_percent / 100);
+                const percentSold =
+                  item.quantity > 0
+                    ? Math.round((item.sold / item.quantity) * 100)
+                    : 100;
 
-                 return (
+                return (
                   <Link
                     to={`/product/${product._id}`}
                     key={item._id}
@@ -382,11 +406,13 @@ setProducts(productsAll);
                     </div>
 
                     <div className="w-full h-32 md:h-40 mb-3 overflow-hidden rounded-lg bg-gray-50 flex items-center justify-center">
-                        <img
-                          src={product.image_url || "https://placehold.co/300x300"}
-                          alt={product.product_name}
-                          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
-                        />
+                      <img
+                        src={
+                          product.image_url || "https://placehold.co/300x300"
+                        }
+                        alt={product.product_name}
+                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                      />
                     </div>
 
                     <h4 className="text-xs md:text-sm font-bold text-gray-800 line-clamp-2 mb-1 h-9 leading-tight">
@@ -412,13 +438,13 @@ setProducts(productsAll);
                         Đã bán {item.sold}
                       </span>
                       {percentSold >= 90 && (
-                         <div className="absolute right-0 top-0 h-full flex items-center pr-1">
-                             <FaFire className="text-yellow-200 text-[10px] animate-pulse" />
-                         </div>
+                        <div className="absolute right-0 top-0 h-full flex items-center pr-1">
+                          <FaFire className="text-yellow-200 text-[10px] animate-pulse" />
+                        </div>
                       )}
                     </div>
                   </Link>
-                 );
+                );
               })}
             </div>
           </div>
