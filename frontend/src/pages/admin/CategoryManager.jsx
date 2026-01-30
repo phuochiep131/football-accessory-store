@@ -17,7 +17,8 @@ import {
   UploadCloud,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api/categories";
+const API_URL =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
 
@@ -49,7 +50,7 @@ const CategoryManager = () => {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(API_URL);
+      const res = await axios.get(`${API_URL}/categories`);
       setCategories(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Lỗi kết nối:", error);
@@ -93,7 +94,7 @@ const CategoryManager = () => {
     try {
       const res = await axios.post(
         `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        formData
+        formData,
       );
       return res.data.secure_url;
     } catch (error) {
@@ -164,12 +165,12 @@ const CategoryManager = () => {
       };
 
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, payload, {
+        await axios.put(`${API_URL}/categories/${editingId}`, payload, {
           withCredentials: true,
         });
         toast.success("Cập nhật thành công!", { id: toastId });
       } else {
-        await axios.post(API_URL, payload, {
+        await axios.post(`${API_URL}/categories`, payload, {
           withCredentials: true,
         });
         toast.success("Thêm mới thành công!", { id: toastId });
@@ -204,7 +205,9 @@ const CategoryManager = () => {
 
     const toastId = toast.loading("Đang xóa...");
     try {
-      await axios.delete(`${API_URL}/${id}`, { withCredentials: true });
+      await axios.delete(`${API_URL}/categories/${id}`, {
+        withCredentials: true,
+      });
       setCategories((prev) => prev.filter((c) => c._id !== id));
       toast.success("Đã xóa danh mục", { id: toastId });
     } catch (error) {
@@ -214,7 +217,7 @@ const CategoryManager = () => {
   };
 
   const filteredCategories = categories.filter((c) =>
-    (c.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+    (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (

@@ -26,6 +26,8 @@ const SearchPage = () => {
   const [priceRange, setPriceRange] = useState("all");
   const [selectedBrands, setSelectedBrands] = useState([]);
 
+  const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+
   // 1. Fetch dữ liệu khi keyword thay đổi
   useEffect(() => {
     const fetchSearch = async () => {
@@ -33,7 +35,7 @@ const SearchPage = () => {
       try {
         // Gọi API tìm kiếm theo keyword
         const res = await axios.get(
-          `http://localhost:5000/api/products?keyword=${keyword}`
+          `${API_URL}/products?keyword=${keyword}`
         );
         setOriginalProducts(res.data);
       } catch (error) {

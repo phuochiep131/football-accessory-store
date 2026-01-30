@@ -15,12 +15,14 @@ import {
 } from "lucide-react";
 
 // --- CẤU HÌNH API ---
-const FLASHSALE_API_URL = "http://localhost:5000/api/flash-sale"; 
-const PRODUCT_API_URL = "http://localhost:5000/api/products";
+const FLASHSALE_API_URL =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const PRODUCT_API_URL =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const FlashSaleManager = () => {
   const [flashSales, setFlashSales] = useState([]);
-  const [products, setProducts] = useState([]); 
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,7 +43,11 @@ const FlashSaleManager = () => {
   // --- HELPER: Tính tổng tồn kho từ các Size ---
   const calculateTotalStock = (product) => {
     // Nếu có mảng sizes thì cộng dồn quantity của từng size
-    if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+    if (
+      product.sizes &&
+      Array.isArray(product.sizes) &&
+      product.sizes.length > 0
+    ) {
       return product.sizes.reduce((acc, s) => acc + (s.quantity || 0), 0);
     }
     // Nếu không có sizes thì lấy quantity gốc (fallback)
@@ -53,7 +59,7 @@ const FlashSaleManager = () => {
     const date = new Date(isoString);
     const pad = (num) => String(num).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-      date.getDate()
+      date.getDate(),
     )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
@@ -61,8 +67,8 @@ const FlashSaleManager = () => {
     setLoading(true);
     try {
       const [resFlashSales, resProducts] = await Promise.all([
-        fetch(FLASHSALE_API_URL),
-        fetch(PRODUCT_API_URL),
+        fetch(`${FLASHSALE_API_URL}/flash-sale`),
+        fetch(`${PRODUCT_API_URL}/products`),
       ]);
 
       const dataFlashSales = await resFlashSales.json();
@@ -123,8 +129,8 @@ const FlashSaleManager = () => {
     try {
       const method = editingId ? "PUT" : "POST";
       const url = editingId
-        ? `${FLASHSALE_API_URL}/${editingId}`
-        : FLASHSALE_API_URL;
+        ? `${FLASHSALE_API_URL}/flash-sale/${editingId}`
+        : `${FLASHSALE_API_URL}/flash-sale`;
 
       const res = await fetch(url, {
         method: method,
@@ -135,7 +141,11 @@ const FlashSaleManager = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
 
-      alert(editingId ? "Cập nhật Flash Sale thành công!" : "Tạo Flash Sale thành công!");
+      alert(
+        editingId
+          ? "Cập nhật Flash Sale thành công!"
+          : "Tạo Flash Sale thành công!",
+      );
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
@@ -148,7 +158,7 @@ const FlashSaleManager = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa chiến dịch này?")) {
       try {
-        const res = await fetch(`${FLASHSALE_API_URL}/${id}`, {
+        const res = await fetch(`${FLASHSALE_API_URL}/flash-sale/${id}`, {
           method: "DELETE",
         });
         if (res.ok) {
@@ -156,7 +166,7 @@ const FlashSaleManager = () => {
         } else {
           alert("Xóa thất bại");
         }
-      } catch (error) {
+      } catch {
         alert("Lỗi kết nối");
       }
     }
@@ -164,7 +174,9 @@ const FlashSaleManager = () => {
 
   const selectedProduct = products.find((p) => p._id === formData.product_id);
   // Tính tổng kho cho sản phẩm đang chọn
-  const selectedProductStock = selectedProduct ? calculateTotalStock(selectedProduct) : 0;
+  const selectedProductStock = selectedProduct
+    ? calculateTotalStock(selectedProduct)
+    : 0;
 
   const filteredSales = flashSales.filter((s) => {
     const productName = s.product_id?.product_name || "";
@@ -180,7 +192,9 @@ const FlashSaleManager = () => {
             <Zap className="fill-current" /> Quản lý Flash Sale
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            {loading ? "Đang tải..." : `Đang chạy: ${flashSales.length} chiến dịch`}
+            {loading
+              ? "Đang tải..."
+              : `Đang chạy: ${flashSales.length} chiến dịch`}
           </p>
         </div>
         <button
@@ -194,7 +208,10 @@ const FlashSaleManager = () => {
       {/* Search */}
       <div className="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-gray-100 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="text"
             placeholder="Tìm theo tên sản phẩm..."
@@ -228,12 +245,18 @@ const FlashSaleManager = () => {
             <tbody className="divide-y divide-gray-50">
               {filteredSales.map((sale) => {
                 const product = sale.product_id;
-                if (!product) return null; 
-                const salePrice = product.price * (1 - sale.discount_percent / 100);
-                const percentSold = Math.round((sale.sold / sale.quantity) * 100);
+                if (!product) return null;
+                const salePrice =
+                  product.price * (1 - sale.discount_percent / 100);
+                const percentSold = Math.round(
+                  (sale.sold / sale.quantity) * 100,
+                );
 
                 return (
-                  <tr key={sale._id} className="hover:bg-gray-50/80 transition-colors group">
+                  <tr
+                    key={sale._id}
+                    className="hover:bg-gray-50/80 transition-colors group"
+                  >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <img
@@ -246,7 +269,11 @@ const FlashSaleManager = () => {
                             {product.product_name}
                           </div>
                           <div className="text-xs text-gray-500">
-                            Gốc: {new Intl.NumberFormat("vi-VN").format(product.price)}đ
+                            Gốc:{" "}
+                            {new Intl.NumberFormat("vi-VN").format(
+                              product.price,
+                            )}
+                            đ
                           </div>
                         </div>
                       </div>
@@ -273,12 +300,12 @@ const FlashSaleManager = () => {
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
-                         <span className="w-10 text-xs font-bold">Start:</span> 
-                         {new Date(sale.start_date).toLocaleString('vi-VN')}
+                        <span className="w-10 text-xs font-bold">Start:</span>
+                        {new Date(sale.start_date).toLocaleString("vi-VN")}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
-                         <span className="w-10 text-xs font-bold">End:</span>
-                         {new Date(sale.end_date).toLocaleString('vi-VN')}
+                        <span className="w-10 text-xs font-bold">End:</span>
+                        {new Date(sale.end_date).toLocaleString("vi-VN")}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-center">
@@ -293,11 +320,17 @@ const FlashSaleManager = () => {
                       )}
                     </td>
                     <td className="py-4 px-6">
-                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => openEditModal(sale)} className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 shadow-sm">
+                      <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={() => openEditModal(sale)}
+                          className="p-2 bg-white border border-gray-200 text-blue-600 rounded-lg hover:bg-blue-50 shadow-sm"
+                        >
                           <Edit size={16} />
                         </button>
-                        <button onClick={() => handleDelete(sale._id)} className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 shadow-sm">
+                        <button
+                          onClick={() => handleDelete(sale._id)}
+                          className="p-2 bg-white border border-gray-200 text-red-600 rounded-lg hover:bg-red-50 shadow-sm"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -318,16 +351,20 @@ const FlashSaleManager = () => {
               <h3 className="text-xl font-bold text-gray-800">
                 {editingId ? "Cập nhật Flash Sale" : "Tạo chiến dịch mới"}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full"
+              >
                 <X size={24} />
               </button>
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-5">
-              
               {/* 1. Chọn sản phẩm */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sản phẩm áp dụng</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Sản phẩm áp dụng
+                </label>
                 <select
                   required
                   name="product_id"
@@ -341,9 +378,10 @@ const FlashSaleManager = () => {
                     const stock = calculateTotalStock(p);
                     return (
                       <option key={p._id} value={p._id}>
-                        {p.product_name} - (Kho: {stock}) - {p.price.toLocaleString()}đ
+                        {p.product_name} - (Kho: {stock}) -{" "}
+                        {p.price.toLocaleString()}đ
                       </option>
-                    )
+                    );
                   })}
                 </select>
               </div>
@@ -351,50 +389,77 @@ const FlashSaleManager = () => {
               {/* 2. Preview & Cảnh Báo Giá */}
               {selectedProduct && (
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-4">
-                    <img src={selectedProduct.image_url} alt="" className="w-16 h-16 object-cover rounded-md bg-white border border-gray-200"/>
-                    <div className="flex-1">
-                        <p className="font-bold text-gray-800 text-base">{selectedProduct.product_name}</p>
-                        
-                        {/* Hiện số lượng kho to rõ */}
-                        <p className="text-sm text-gray-600 font-medium mt-1">
-                           Kho hiện tại: <span className="text-blue-600 font-bold">{selectedProductStock}</span> sản phẩm
-                        </p>
-                        
-                        {/* Giá sau giảm Flash Sale */}
-                        {formData.discount_percent > 0 && (
-                            <p className="text-sm font-bold text-orange-600 mt-1">
-                                Giá Flash Sale: {new Intl.NumberFormat("vi-VN").format(selectedProduct.price * (1 - formData.discount_percent/100))}đ
-                            </p>
-                        )}
+                  <img
+                    src={selectedProduct.image_url}
+                    alt=""
+                    className="w-16 h-16 object-cover rounded-md bg-white border border-gray-200"
+                  />
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-800 text-base">
+                      {selectedProduct.product_name}
+                    </p>
 
-                        {/* --- LOGIC CẢNH BÁO XUNG ĐỘT GIÁ --- */}
-                        {selectedProduct.discount > 0 && (
-                           <div className="mt-3 text-sm bg-white p-2 rounded border border-orange-200">
-                              <div className="flex justify-between items-center mb-1">
-                                  <span className="text-gray-500">Giảm giá thường: </span>
-                                  <span className="font-bold text-gray-700">{selectedProduct.discount}%</span>
-                              </div>
-                              
-                              {/* Nếu Flash Sale <= Giảm thường => Cảnh báo đỏ */}
-                              {Number(formData.discount_percent) <= selectedProduct.discount ? (
-                                 <div className="flex items-start gap-2 text-red-600 font-bold text-xs animate-pulse bg-red-50 p-2 rounded mt-1 border border-red-100">
-                                    <AlertCircle size={16} className="shrink-0"/> 
-                                    <span>Lỗi: % Flash Sale ({formData.discount_percent}%) đang thấp hơn hoặc bằng giảm giá thường! Khách sẽ không thấy ưu đãi này.</span>
-                                 </div>
-                              ) : (
-                                <div className="text-green-600 font-bold text-xs flex items-center gap-1 mt-1">
-                                    <CheckCircle size={14} /> Giá Flash Sale tốt hơn giá thường. Hợp lệ!
-                                </div>
-                              )}
-                           </div>
+                    {/* Hiện số lượng kho to rõ */}
+                    <p className="text-sm text-gray-600 font-medium mt-1">
+                      Kho hiện tại:{" "}
+                      <span className="text-blue-600 font-bold">
+                        {selectedProductStock}
+                      </span>{" "}
+                      sản phẩm
+                    </p>
+
+                    {/* Giá sau giảm Flash Sale */}
+                    {formData.discount_percent > 0 && (
+                      <p className="text-sm font-bold text-orange-600 mt-1">
+                        Giá Flash Sale:{" "}
+                        {new Intl.NumberFormat("vi-VN").format(
+                          selectedProduct.price *
+                            (1 - formData.discount_percent / 100),
                         )}
-                    </div>
+                        đ
+                      </p>
+                    )}
+
+                    {/* --- LOGIC CẢNH BÁO XUNG ĐỘT GIÁ --- */}
+                    {selectedProduct.discount > 0 && (
+                      <div className="mt-3 text-sm bg-white p-2 rounded border border-orange-200">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-gray-500">
+                            Giảm giá thường:{" "}
+                          </span>
+                          <span className="font-bold text-gray-700">
+                            {selectedProduct.discount}%
+                          </span>
+                        </div>
+
+                        {/* Nếu Flash Sale <= Giảm thường => Cảnh báo đỏ */}
+                        {Number(formData.discount_percent) <=
+                        selectedProduct.discount ? (
+                          <div className="flex items-start gap-2 text-red-600 font-bold text-xs animate-pulse bg-red-50 p-2 rounded mt-1 border border-red-100">
+                            <AlertCircle size={16} className="shrink-0" />
+                            <span>
+                              Lỗi: % Flash Sale ({formData.discount_percent}%)
+                              đang thấp hơn hoặc bằng giảm giá thường! Khách sẽ
+                              không thấy ưu đãi này.
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-green-600 font-bold text-xs flex items-center gap-1 mt-1">
+                            <CheckCircle size={14} /> Giá Flash Sale tốt hơn giá
+                            thường. Hợp lệ!
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phần trăm giảm (%)</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Phần trăm giảm (%)
+                  </label>
                   <input
                     required
                     type="number"
@@ -407,7 +472,9 @@ const FlashSaleManager = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Số lượng Sale</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Số lượng Sale
+                  </label>
                   <input
                     required
                     type="number"
@@ -424,7 +491,9 @@ const FlashSaleManager = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian bắt đầu</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Thời gian bắt đầu
+                  </label>
                   <input
                     required
                     type="datetime-local"
@@ -435,7 +504,9 @@ const FlashSaleManager = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian kết thúc</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Thời gian kết thúc
+                  </label>
                   <input
                     required
                     type="datetime-local"
@@ -456,7 +527,10 @@ const FlashSaleManager = () => {
                   onChange={handleInputChange}
                   className="w-5 h-5 text-orange-600 rounded focus:ring-orange-500 border-gray-300"
                 />
-                <label htmlFor="status" className="text-sm font-semibold text-gray-700 select-none cursor-pointer">
+                <label
+                  htmlFor="status"
+                  className="text-sm font-semibold text-gray-700 select-none cursor-pointer"
+                >
                   Kích hoạt chiến dịch ngay
                 </label>
               </div>
@@ -474,7 +548,11 @@ const FlashSaleManager = () => {
                   disabled={isSubmitting}
                   className="px-6 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-medium flex items-center gap-2 shadow-lg shadow-orange-500/30 transition-all active:scale-95 disabled:opacity-70"
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                  {isSubmitting ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : (
+                    <Save size={18} />
+                  )}
                   {editingId ? "Lưu thay đổi" : "Xác nhận tạo"}
                 </button>
               </div>

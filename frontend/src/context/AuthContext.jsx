@@ -70,6 +70,7 @@ import React, { createContext, useContext, useReducer, useEffect } from "react";
 import axios from "axios";
 
 const AuthContext = createContext();
+const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const initialState = {
   currentUser: null,
@@ -110,13 +111,12 @@ export const AuthProvider = ({ children }) => {
         // Thường là: server.js khai báo app.use('/api/auth', authRoute)
         // Và authRoute khai báo router.get('/me', ...)
         // => Kết quả là: /api/auth/me
-        const response = await axios.get("http://localhost:5000/api/auth/me", {
+        const response = await axios.get(`${API_URL}/auth/me`, {
           withCredentials: true, // Bắt buộc để gửi Cookie đi kèm
         });
 
         dispatch({ type: "AUTH_SUCCESS", payload: response.data });
-      } catch (error) {
-        // Không cần log lỗi này ra console để tránh đỏ màn hình khi user chưa login
+      } catch {
         dispatch({ type: "AUTH_FAILURE" });
       }
     };

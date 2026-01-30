@@ -27,6 +27,8 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+
   // State lưu dữ liệu form
   const [formData, setFormData] = useState({
     fullname: "",
@@ -65,7 +67,7 @@ const Profile = () => {
     try {
       // Gọi API cập nhật (Bạn cần đảm bảo Backend có route này)
       const response = await axios.put(
-        "http://localhost:5000/api/user/update",
+        `${API_URL}/user/update`,
         formData,
         {
           withCredentials: true,

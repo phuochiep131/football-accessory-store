@@ -12,7 +12,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const ChangePassword = () => {
     const navigate = useNavigate();

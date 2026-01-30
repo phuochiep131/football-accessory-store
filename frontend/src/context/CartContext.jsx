@@ -9,8 +9,8 @@ export const CartProvider = ({ children }) => {
   const { state } = useAuth();
   const { currentUser } = state;
 
-  // URL API gốc
-  const API_URL = "http://localhost:5000/api";
+  const API_URL =
+    import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
   // 1. Hàm lấy số lượng
   const fetchCartCount = async () => {
@@ -41,19 +41,19 @@ export const CartProvider = ({ children }) => {
 
     // Nếu sản phẩm yêu cầu size mà không có size (đề phòng)
     if (!size) {
-        alert("Vui lòng chọn size sản phẩm");
-        return false;
+      alert("Vui lòng chọn size sản phẩm");
+      return false;
     }
 
     try {
       await axios.post(
         `${API_URL}/cart/add`,
-        { 
-            productId, 
-            quantity,
-            size // Gửi thông tin size lên backend
+        {
+          productId,
+          quantity,
+          size, // Gửi thông tin size lên backend
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       // Sau khi thêm thành công, gọi ngay hàm fetchCartCount để cập nhật số trên Navbar
@@ -62,7 +62,9 @@ export const CartProvider = ({ children }) => {
     } catch (error) {
       console.error("Lỗi thêm vào giỏ hàng:", error);
       // Hiển thị lỗi từ backend (ví dụ: hết hàng)
-      alert(error.response?.data?.error || "Có lỗi xảy ra khi thêm vào giỏ hàng.");
+      alert(
+        error.response?.data?.error || "Có lỗi xảy ra khi thêm vào giỏ hàng.",
+      );
       return false;
     }
   };

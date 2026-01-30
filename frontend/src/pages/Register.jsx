@@ -18,6 +18,8 @@ import {
 const Register = () => {
     const navigate = useNavigate();
 
+    const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+
     // --- STATE QUẢN LÝ ---
     const [formData, setFormData] = useState({
         fullName: '',
@@ -80,7 +82,7 @@ const Register = () => {
         }
 
         // --- GỌI API ---
-        axios.post(`http://localhost:5000/api/auth/register`, {
+        axios.post(`${API_URL}/auth/register`, {
             fullname: formData.fullName,
             email: formData.email,
             username: formData.username,

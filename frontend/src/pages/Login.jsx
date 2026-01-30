@@ -19,6 +19,7 @@ const Login = () => {
   const { dispatch } = useAuth();
 
   const stateData = location.state;
+  const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
   const [formData, setFormData] = useState({
     username: stateData?.username || "",
@@ -46,7 +47,7 @@ const Login = () => {
 
     axios
       .post(
-        `http://localhost:5000/api/auth/login`,
+        `${API_URL}/auth/login`,
         {
           username: formData.username,
           password: formData.password,

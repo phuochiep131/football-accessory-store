@@ -8,17 +8,18 @@ const VnpayReturn = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState("loading");
   const [timeLeft, setTimeLeft] = useState(5);
-
+  const API_URL =
+    import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
   // VnpayReturn.jsx
   useEffect(() => {
     const verify = async () => {
       try {
         // Gửi toàn bộ search params hiện tại lên backend để verify
         const res = await axios.get(
-          `http://localhost:5000/api/orders/vnpay-verify?${searchParams.toString()}`,
+          `${API_URL}/orders/vnpay-verify?${searchParams.toString()}`,
           {
             withCredentials: true,
-          }
+          },
         );
 
         if (res.data.success) {

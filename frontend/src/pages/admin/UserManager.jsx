@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 
 // --- CONFIG ---
-const API_URL = "http://localhost:5000/api/user";
+const API_URL =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
 
@@ -61,7 +62,7 @@ const UserManager = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(API_URL, { withCredentials: true });
+      const res = await axios.get(`${API_URL}/user`, { withCredentials: true });
       setUsers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Lỗi fetch data:", err);
@@ -108,7 +109,7 @@ const UserManager = () => {
     try {
       const res = await axios.post(
         `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        formData
+        formData,
       );
       return res.data.secure_url;
     } catch (error) {
@@ -187,12 +188,12 @@ const UserManager = () => {
       }
 
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, payload, {
+        await axios.put(`${API_URL}/user/${editingId}`, payload, {
           withCredentials: true,
         });
         toast.success("Cập nhật thành công!", { id: toastId });
       } else {
-        await axios.post(API_URL, payload, { withCredentials: true });
+        await axios.post(`${API_URL}/user`, payload, { withCredentials: true });
         toast.success("Thêm mới thành công!", { id: toastId });
       }
 
@@ -221,7 +222,7 @@ const UserManager = () => {
 
     const toastId = toast.loading("Đang xóa...");
     try {
-      await axios.delete(`${API_URL}/${id}`, { withCredentials: true });
+      await axios.delete(`${API_URL}/user/${id}`, { withCredentials: true });
       setUsers((prev) => prev.filter((u) => u._id !== id));
       toast.success("Đã xóa người dùng", { id: toastId });
     } catch (err) {

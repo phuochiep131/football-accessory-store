@@ -16,7 +16,8 @@ import {
   UploadCloud,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
 
@@ -60,7 +61,7 @@ const ProductManager = () => {
 
       setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
       setCategories(
-        Array.isArray(categoriesRes.data) ? categoriesRes.data : []
+        Array.isArray(categoriesRes.data) ? categoriesRes.data : [],
       );
     } catch {
       toast.error("Không thể kết nối đến Server!");
@@ -100,7 +101,7 @@ const ProductManager = () => {
     try {
       const res = await axios.post(
         `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        formData
+        formData,
       );
       return res.data.secure_url;
     } catch {
@@ -602,7 +603,7 @@ const ProductManager = () => {
                               handleSizeChange(
                                 index,
                                 "quantity",
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             className="w-20 border rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
@@ -780,8 +781,8 @@ const ProductManager = () => {
                   {isSubmitting
                     ? "Đang xử lý..."
                     : editingId
-                    ? "Lưu thay đổi"
-                    : "Tạo sản phẩm"}
+                      ? "Lưu thay đổi"
+                      : "Tạo sản phẩm"}
                 </button>
               </div>
             </form>

@@ -22,11 +22,11 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { state, dispatch } = useAuth();
   const { currentUser } = state;
-
+const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
   // Hàm đăng xuất
   const handleLogout = async () => {
     try {
-      await axios.get("http://localhost:5000/api/auth/logout", {
+      await axios.get(`${API_URL}/auth/logout`, {
         withCredentials: true,
       });
       dispatch({ type: "AUTH_FAILURE" });

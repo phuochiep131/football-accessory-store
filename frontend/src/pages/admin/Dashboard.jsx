@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 
-const API_URL = "http://localhost:5000/api/dashboard";
+const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
@@ -78,7 +78,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await axios.get(`${API_URL}/stats`, {
+        const res = await axios.get(`${API_URL}/dashboard/stats`, {
           withCredentials: true,
         });
         setData(res.data);

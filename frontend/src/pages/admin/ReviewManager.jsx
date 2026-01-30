@@ -3,8 +3,8 @@ import axios from "axios";
 import { Toaster, toast } from "sonner";
 import { Star, Eye, EyeOff, Trash2, MessageSquare } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api/reviews";
-
+const API_URL =
+  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 const ReviewManager = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +13,7 @@ const ReviewManager = () => {
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/admin/all`, {
+      const res = await axios.get(`${API_URL}/reviews/admin/all`, {
         withCredentials: true,
       });
       setReviews(res.data);
@@ -32,12 +32,12 @@ const ReviewManager = () => {
   const toggleVisibility = async (id) => {
     try {
       await axios.put(
-        `${API_URL}/admin/toggle/${id}`,
+        `${API_URL}/reviews/admin/toggle/${id}`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
       setReviews((prev) =>
-        prev.map((r) => (r._id === id ? { ...r, is_hidden: !r.is_hidden } : r))
+        prev.map((r) => (r._id === id ? { ...r, is_hidden: !r.is_hidden } : r)),
       );
       toast.success("Đã cập nhật trạng thái");
     } catch (error) {
@@ -50,7 +50,9 @@ const ReviewManager = () => {
     if (!window.confirm("Bạn chắc chắn muốn xóa vĩnh viễn đánh giá này?"))
       return;
     try {
-      await axios.delete(`${API_URL}/admin/${id}`, { withCredentials: true });
+      await axios.delete(`${API_URL}/reviews/admin/${id}`, {
+        withCredentials: true,
+      });
       setReviews((prev) => prev.filter((r) => r._id !== id));
       toast.success("Đã xóa đánh giá");
     } catch (error) {

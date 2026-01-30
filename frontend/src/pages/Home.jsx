@@ -30,8 +30,7 @@ import MainBanner from "../assets/banner_to.jpg";
 import TopBanner from "../assets/top_banner.jpg";
 import BottomBanner from "../assets/bottom_banner.jpg";
 
-const API_URL = "http://localhost:5000/api";
-// const API_URL = "https://football-accessory-store-6xno.onrender.com/api";
+const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", {

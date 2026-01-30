@@ -20,7 +20,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
 
 const Checkout = () => {
   const navigate = useNavigate();
