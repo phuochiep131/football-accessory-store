@@ -18,7 +18,7 @@ import {
 const Register = () => {
     const navigate = useNavigate();
 
-    const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+    const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
     // --- STATE QUẢN LÝ ---
     const [formData, setFormData] = useState({

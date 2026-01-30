@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 const Dashboard = () => {
   const [data, setData] = useState(null);

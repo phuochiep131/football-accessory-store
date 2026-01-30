@@ -4,7 +4,7 @@ import { Toaster, toast } from "sonner";
 import { Star, Eye, EyeOff, Trash2, MessageSquare } from "lucide-react";
 
 const API_URL =
-  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 const ReviewManager = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);

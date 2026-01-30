@@ -16,7 +16,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 // Component hiển thị quy trình đơn hàng (Stepper)
 const OrderTimeline = ({ status }) => {

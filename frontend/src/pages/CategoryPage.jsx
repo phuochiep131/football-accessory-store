@@ -12,7 +12,7 @@ import {
 import ProductCard from "../components/ProductCard";
 import FilterSidebar from "../components/FilterSidebar"; // <--- Import Sidebar dùng chung
 
-const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 const CategoryPage = () => {
   const { id } = useParams();

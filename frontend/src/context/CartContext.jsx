@@ -10,7 +10,7 @@ export const CartProvider = ({ children }) => {
   const { currentUser } = state;
 
   const API_URL =
-    import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+    import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
   // 1. Hàm lấy số lượng
   const fetchCartCount = async () => {

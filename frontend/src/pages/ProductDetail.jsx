@@ -21,7 +21,7 @@ import {
   Zap, // Thêm icon sét cho Flash Sale
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 const ProductDetail = () => {
   const { id } = useParams();

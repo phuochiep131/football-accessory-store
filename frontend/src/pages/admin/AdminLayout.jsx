@@ -22,7 +22,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { state, dispatch } = useAuth();
   const { currentUser } = state;
-const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
   // Hàm đăng xuất
   const handleLogout = async () => {
     try {

@@ -16,9 +16,9 @@ import {
 
 // --- CẤU HÌNH API ---
 const FLASHSALE_API_URL =
-  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 const PRODUCT_API_URL =
-  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 const FlashSaleManager = () => {
   const [flashSales, setFlashSales] = useState([]);

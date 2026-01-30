@@ -26,7 +26,7 @@ const SearchPage = () => {
   const [priceRange, setPriceRange] = useState("all");
   const [selectedBrands, setSelectedBrands] = useState([]);
 
-  const API_URL = import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+  const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
   // 1. Fetch dữ liệu khi keyword thay đổi
   useEffect(() => {

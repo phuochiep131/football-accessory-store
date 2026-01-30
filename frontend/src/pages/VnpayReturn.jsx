@@ -9,7 +9,7 @@ const VnpayReturn = () => {
   const [status, setStatus] = useState("loading");
   const [timeLeft, setTimeLeft] = useState(5);
   const API_URL =
-    import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+    import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
   // VnpayReturn.jsx
   useEffect(() => {
     const verify = async () => {

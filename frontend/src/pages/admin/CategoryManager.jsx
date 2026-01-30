@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 const API_URL =
-  import.meta.env.VITE_BEKCEND_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 const CLOUD_NAME = "detransaw";
 const UPLOAD_PRESET = "web_upload";
 
