@@ -20,7 +20,8 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
+const API_URL =
+  import.meta.env.VITE_BECKEND_API_URL || "http://localhost:5000/api";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const Checkout = () => {
     phone: "",
     address: "",
     city: "",
-    district: "",
+    // Đã xóa district
     note: "",
   });
 
@@ -53,7 +54,7 @@ const Checkout = () => {
         phone: currentUser.phone_number || "",
         address: currentUser.address || "",
         city: prev.city || "",
-        district: prev.district || "",
+        // Đã xóa district
         note: "",
       }));
     } else if (addressMode === "new") {
@@ -62,7 +63,7 @@ const Checkout = () => {
         phone: "",
         address: "",
         city: "",
-        district: "",
+        // Đã xóa district
         note: "",
       });
     }
@@ -103,21 +104,28 @@ const Checkout = () => {
 
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.currentPrice * item.quantity,
-    0
+    0,
   );
   const shippingFee = subtotal > 5000000 ? 0 : 30000;
   const total = subtotal + shippingFee;
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (!formData.fullname || !formData.phone || !formData.address) {
+    // Đã xóa check formData.district
+    if (
+      !formData.fullname ||
+      !formData.phone ||
+      !formData.address ||
+      !formData.city
+    ) {
       toast.warning("Vui lòng điền đầy đủ thông tin!");
       return;
     }
     setProcessing(true);
     try {
       const orderData = {
-        shipping_address: `${formData.address}, ${formData.district}, ${formData.city}`,
+        // Cập nhật format địa chỉ: chỉ còn Address + City
+        shipping_address: `${formData.address}, ${formData.city}`,
         phone_number: formData.phone,
         fullname: formData.fullname,
         payment_method: paymentMethod,
@@ -295,6 +303,7 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {/* Sửa col-span-2 thành 1 hoặc để nguyên nếu muốn rộng, ở đây tôi để span-2 cho đẹp */}
                 <div className="md:col-span-2 space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">
                     Địa chỉ cụ thể
@@ -303,21 +312,6 @@ const Checkout = () => {
                     type="text"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none font-medium transition-all"
                     placeholder="Số nhà, tên đường..."
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase">
-                    Tỉnh / Thành phố
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none font-medium transition-all"
                     value={formData.city}
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
@@ -326,16 +320,18 @@ const Checkout = () => {
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                {/* Đã xóa input Quận/Huyện ở đây */}
+
+                <div className="md:col-span-2 space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">
-                    Quận / Huyện
+                    Tỉnh / Thành phố
                   </label>
                   <input
                     type="text"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none font-medium transition-all"
-                    value={formData.district}
+                    value={formData.address}
                     onChange={(e) =>
-                      setFormData({ ...formData, district: e.target.value })
+                      setFormData({ ...formData, address: e.target.value })
                     }
                     required
                   />
